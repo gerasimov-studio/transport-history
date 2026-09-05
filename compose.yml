@@ -1,0 +1,72 @@
+name: th
+
+services:
+  db:
+    build:
+      context: ./db
+      dockerfile: Dockerfile
+    container_name: th-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: th
+      POSTGRES_USER: th
+      POSTGRES_PASSWORD: th
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U th -d th"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: th-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://th:th@db:5432/th
+      PORT: "3001"
+      EDITOR_USERNAME: editor
+      EDITOR_PASSWORD: editor
+    depends_on:
+      db:
+        condition: service_healthy
+    expose:
+      - "3001"
+    ports:
+      - "3001:3001"
+
+  web:
+    build: .
+    container_name: th-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    expose:
+      - "80"
+    networks:
+      - default
+      - proxy
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      traefik.http.routers.th.rule: "Host(`th.test`)"
+      traefik.http.routers.th.entrypoints: web
+      traefik.http.services.th.loadbalancer.server.port: "80"
+      traefik.http.routers.th-secure.rule: "Host(`th.test`)"
+      traefik.http.routers.th-secure.entrypoints: websecure
+      traefik.http.routers.th-secure.tls: "true"
+      traefik.http.routers.th-secure.service: th
+
+volumes:
+  postgres_data:
+
+networks:
+  proxy:
+    external: true

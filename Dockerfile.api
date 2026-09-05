@@ -1,0 +1,14 @@
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+COPY api ./api
+COPY db ./db
+
+ENV NODE_ENV=production
+EXPOSE 3001
+
+CMD ["node", "--experimental-strip-types", "--no-warnings", "api/server.ts"]

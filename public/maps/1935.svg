@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" role="img" aria-label="Схема маршрутной сети Москвы, 1935">
+  <rect width="1600" height="1000" fill="#121922"/>
+  <g opacity="0.35" fill="none" stroke="#2a3a4c" stroke-width="1">
+    <circle cx="620" cy="500" r="90"/>
+    <circle cx="620" cy="500" r="180"/>
+    <circle cx="620" cy="500" r="270"/>
+    <circle cx="620" cy="500" r="360"/>
+    <path d="M 200,500 H 1050 M 620,140 V 870"/>
+  </g>
+  <path d="M 80,40 H 1520 V 960 H 80 Z" fill="none" stroke="#243140" stroke-width="1.2"/>
+  <path d="M 620,355 C 705,362 778,428 782,500 C 786,578 708,642 620,648 C 532,642 458,578 460,500 C 464,428 535,348 620,355 Z" fill="#1c2a38" stroke="#3d5368" stroke-width="1.8"/>
+  
+  <path d="M 240,540 C 340,500 410,455 490,488 C 555,514 590,575 640,598 C 720,632 790,555 870,512 C 940,478 1020,490 1140,530" fill="none" stroke="#3d6f84" stroke-width="14" stroke-linecap="round"/>
+  <path d="M 240,540 C 340,500 410,455 490,488 C 555,514 590,575 640,598 C 720,632 790,555 870,512 C 940,478 1020,490 1140,530" fill="none" stroke="#7fb7c9" stroke-width="6" stroke-linecap="round" opacity="0.55"/>
+  <g><path d="M 510,492 L 745,506 M 590,395 L 638,618 M 525,555 L 708,572 M 550,430 L 660,460 L 715,520 M 670,410 L 690,540" fill="none" stroke="#8b9bab" stroke-width="7.3" stroke-linecap="round" stroke-linejoin="round" opacity="0.22"/><path d="M 510,492 L 745,506 M 590,395 L 638,618 M 525,555 L 708,572 M 550,430 L 660,460 L 715,520 M 670,410 L 690,540" fill="none" stroke="#8b9bab" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/><path d="M 818,210 L 742,318 L 678,418 L 620,500 L 592,568 L 528,638 L 498,705" fill="none" stroke="#e42313" stroke-width="11.0" stroke-linecap="round" stroke-linejoin="round" opacity="0.22"/><path d="M 818,210 L 742,318 L 678,418 L 620,500 L 592,568 L 528,638 L 498,705" fill="none" stroke="#e42313" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" opacity="1"/></g>
+  <g><circle cx="818" cy="210" r="4.5" fill="#f4efe4" stroke="#141c28" stroke-width="1.6"/><circle cx="620" cy="500" r="4.5" fill="#f4efe4" stroke="#141c28" stroke-width="1.6"/><circle cx="498" cy="705" r="4.5" fill="#f4efe4" stroke="#141c28" stroke-width="1.6"/></g>
+  <text x="72" y="86" fill="#d7c4a3" font-family="Georgia, 'Times New Roman', serif" font-size="22" letter-spacing="3">МОСКВА</text>
+  <text x="72" y="126" fill="#8f9aa8" font-family="system-ui, sans-serif" font-size="15" letter-spacing="2">маршрутная сеть · 1935</text>
+</svg>
