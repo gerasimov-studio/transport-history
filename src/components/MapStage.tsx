@@ -67,12 +67,14 @@ function ViewerNetwork({
   highlight: boolean
   onViewportChange?: (view: MapViewport) => void
 }) {
-  useMap()
+  const map = useMap()
   const view = useMapView()
   useEffect(() => {
     onViewportChange?.({
       center: [view.bounds.getCenter().lat, view.bounds.getCenter().lng],
       zoom: view.zoom,
+      width: map.getSize().x,
+      height: map.getSize().y,
       bounds: {
         west: view.bounds.getWest(),
         south: view.bounds.getSouth(),
@@ -80,7 +82,7 @@ function ViewerNetwork({
         north: view.bounds.getNorth(),
       },
     })
-  }, [onViewportChange, view])
+  }, [map, onViewportChange, view])
   const visible = features.filter(
     (feature) => featureAtZoom(feature, view.zoom) && featureInView(feature, view.bounds),
   )

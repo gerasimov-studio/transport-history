@@ -223,7 +223,7 @@ export function ViewerPage() {
             </label>
             <a
               download={`transport-${selectedDate}.svg`}
-              href={`/api/export.svg?bbox=${encodeURIComponent([viewport.bounds.west, viewport.bounds.south, viewport.bounds.east, viewport.bounds.north].join(','))}&date=${encodeURIComponent(selectedDate)}&zoom=${viewport.zoom}&workspace=${encodeURIComponent(workspaceId)}&basemap=${exportBasemap ? '1' : '0'}`}
+              href={`/api/export.svg?bbox=${encodeURIComponent([viewport.bounds.west, viewport.bounds.south, viewport.bounds.east, viewport.bounds.north].join(','))}&date=${encodeURIComponent(selectedDate)}&zoom=${viewport.zoom}&width=${viewport.width}&height=${viewport.height}&workspace=${encodeURIComponent(workspaceId)}&basemap=${exportBasemap ? '1' : '0'}&modes=${encodeURIComponent(Object.entries(modes).filter(([, enabled]) => enabled).map(([mode]) => mode).join(','))}&routes=${encodeURIComponent([...visibleRouteIds].join(','))}`}
             >
               {t('viewer.export')}
             </a>

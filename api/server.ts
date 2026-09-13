@@ -818,7 +818,7 @@ const server = createServer(async (req, res) => {
     if (method === 'GET' && path === '/api/export.svg') {
       const bounds = asBounds(url.searchParams.get('bbox') ?? '')
       const date = url.searchParams.get('date')?.trim() ?? ''
-      const zoom = Math.max(0, Math.min(18, Number(url.searchParams.get('zoom') ?? 12)))
+      const zoom = Math.max(0, Math.min(22, Number(url.searchParams.get('zoom') ?? 12)))
       const width = Math.max(320, Math.min(4096, Number(url.searchParams.get('width') ?? 1600)))
       const height = Math.max(240, Math.min(4096, Number(url.searchParams.get('height') ?? 1000)))
       const workspaceId = url.searchParams.get('workspace')?.trim() || 'main'
@@ -840,7 +840,16 @@ const server = createServer(async (req, res) => {
         }
       }
       const state = await mapPayload(bounds, date, zoom, true, workspaceId)
-      const svg = buildMapSvg(state.features, bounds, zoom, width, height, url.searchParams.get('basemap') === '1')
+      const enabledModes = new Set((url.searchParams.get('modes') ?? 'metro,tram,trolleybus,bus').split(',').filter((mode) => modes.has(mode as TransportMode)))
+      const visibleRoutes = url.searchParams.has('routes')
+        ? new Set((url.searchParams.get('routes') ?? '').split(',').filter(Boolean))
+        : null
+      const exportFeatures = state.features.filter((feature) => feature.properties.layer === 'route'
+        ? enabledModes.has(feature.properties.mode) && (!visibleRoutes || visibleRoutes.has(feature.properties.lineId))
+        : feature.properties.way === 'rail'
+          ? enabledModes.has('metro') || enabledModes.has('tram')
+          : enabledModes.has('trolleybus') || enabledModes.has('bus'))
+      const svg = await buildMapSvg(exportFeatures, bounds, zoom, width, height, url.searchParams.get('basemap') === '1')
       res.writeHead(200, {
         'content-type': 'image/svg+xml; charset=utf-8',
         'content-disposition': `attachment; filename="transport-${date}.svg"`,

@@ -156,12 +156,14 @@ function EditorNetwork({
   onMovePoint: (key: string, coord: [number, number]) => void
   onViewportChange?: (view: MapViewport) => void
 }) {
-  useMap()
+  const map = useMap()
   const view = useMapView()
   useEffect(() => {
     onViewportChange?.({
       center: [view.bounds.getCenter().lat, view.bounds.getCenter().lng],
       zoom: view.zoom,
+      width: map.getSize().x,
+      height: map.getSize().y,
       bounds: {
         west: view.bounds.getWest(),
         south: view.bounds.getSouth(),
@@ -169,7 +171,7 @@ function EditorNetwork({
         north: view.bounds.getNorth(),
       },
     })
-  }, [onViewportChange, view])
+  }, [map, onViewportChange, view])
   const visible = features.filter((feature) => {
     const selected =
       feature.properties.layer === 'route'
