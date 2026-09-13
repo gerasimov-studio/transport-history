@@ -34,6 +34,7 @@ services:
       PORT: "3001"
       EDITOR_USERNAME: editor
       EDITOR_PASSWORD: editor
+      SUPERUSER_USERNAME: editor
     depends_on:
       db:
         condition: service_healthy

@@ -44,6 +44,7 @@ export async function migrateAndSeed(pool: pg.Pool, seedDir: string) {
       await hashPassword(password),
     ])
   }
-  const editorUsername = process.env.EDITOR_USERNAME ?? 'editor'
-  await pool.query("UPDATE users SET role = 'admin' WHERE username = $1", [editorUsername])
+  const superuserUsername = process.env.SUPERUSER_USERNAME ?? process.env.EDITOR_USERNAME ?? 'editor'
+  await pool.query("UPDATE users SET role = 'moderator' WHERE role IN ('admin', 'superuser') AND username <> $1", [superuserUsername])
+  await pool.query("UPDATE users SET role = 'superuser' WHERE username = $1", [superuserUsername])
 }

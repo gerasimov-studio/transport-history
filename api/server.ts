@@ -8,6 +8,7 @@ import {
   SESSION_MAX_AGE,
   createSession,
   destroySession,
+  hashPassword,
   userFromRequest,
   verifyPassword,
 } from './auth.ts'
@@ -894,6 +895,29 @@ const server = createServer(async (req, res) => {
       return
     }
 
+    if (method === 'POST' && path === '/api/register') {
+      const body = await readJson<{ username?: string; password?: string }>(req)
+      const username = body.username?.trim() ?? ''
+      const password = body.password ?? ''
+      if (!/^[\p{L}\p{N}_.-]{3,32}$/u.test(username) || password.length < 8) {
+        send(res, 400, { error: 'username must be 3–32 characters and password at least 8 characters' })
+        return
+      }
+      try {
+        const created = await pool.query<{ id: number }>(
+          `INSERT INTO users (username, password_hash, role) VALUES ($1, $2, 'user') RETURNING id`,
+          [username, await hashPassword(password)],
+        )
+        const token = await createSession(pool, created.rows[0]!.id)
+        setCookie(res, SESSION_COOKIE, token, SESSION_MAX_AGE)
+        send(res, 201, { user: { username, role: 'user', preferredLanguage: null } })
+      } catch (error) {
+        if (isUniqueViolation(error)) send(res, 409, { error: 'username is already taken' })
+        else throw error
+      }
+      return
+    }
+
     if (method === 'POST' && path === '/api/logout') {
       const token = cookieValue(req, SESSION_COOKIE)
       if (token) {
@@ -905,6 +929,38 @@ const server = createServer(async (req, res) => {
     }
 
     const user = await userFromRequest(pool, req)
+
+    if (method === 'GET' && path === '/api/users') {
+      if (!user || user.role !== 'superuser') {
+        send(res, 403, { error: 'superuser required' })
+        return
+      }
+      const result = await pool.query(
+        `SELECT id, username, role, preferred_language AS "preferredLanguage", created_at AS "createdAt"
+         FROM users ORDER BY username`,
+      )
+      send(res, 200, { users: result.rows })
+      return
+    }
+
+    const userRoleMatch = path.match(/^\/api\/users\/(\d+)\/role$/)
+    if (method === 'PATCH' && userRoleMatch) {
+      if (!user || user.role !== 'superuser') {
+        send(res, 403, { error: 'superuser required' })
+        return
+      }
+      const body = await readJson<{ role?: string }>(req)
+      if (body.role !== 'user' && body.role !== 'moderator') {
+        send(res, 400, { error: 'role' })
+        return
+      }
+      const result = await pool.query(
+        `UPDATE users SET role = $1 WHERE id = $2 AND role <> 'superuser' RETURNING id, username, role`,
+        [body.role, Number(userRoleMatch[1])],
+      )
+      send(res, result.rowCount ? 200 : 404, result.rows[0] ?? { error: 'user' })
+      return
+    }
 
     if (method === 'GET' && path === '/api/workspaces') {
       if (!user) {
@@ -963,7 +1019,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (method === 'POST' && path === '/api/moderation-areas') {
-      if (!user || user.role !== 'admin') {
+      if (!user || user.role !== 'superuser') {
         send(res, 403, { error: 'admin required' })
         return
       }
@@ -1023,7 +1079,7 @@ const server = createServer(async (req, res) => {
                 c.effective_on::text AS date, c.mode, c.title, c.summary,
                 c.created_at AS "createdAt", c.updated_at AS "updatedAt",
                 u.username AS author,
-                ($2 = 'admin' OR EXISTS (
+                ($2 = 'superuser' OR EXISTS (
                   SELECT 1 FROM moderation_assignments assignment
                   JOIN moderation_areas area ON area.id = assignment.area_id
                   WHERE assignment.user_id = $1
@@ -1033,7 +1089,7 @@ const server = createServer(async (req, res) => {
                 )) AS "canModerate"
          FROM changesets c JOIN users u ON u.id = c.author_id
          WHERE c.author_id = $1 OR c.status = 'published' OR (
-           c.status = 'submitted' AND ($2 = 'admin' OR EXISTS (
+           c.status = 'submitted' AND ($2 = 'superuser' OR EXISTS (
              SELECT 1 FROM moderation_assignments assignment
              JOIN moderation_areas area ON area.id = assignment.area_id
              WHERE assignment.user_id = $1
@@ -1095,7 +1151,7 @@ const server = createServer(async (req, res) => {
         send(res, 409, { error: 'changeset cannot be published' })
         return
       }
-      if (user.role !== 'admin') {
+      if (user.role !== 'superuser') {
         const allowed = await pool.query(
           `SELECT 1
            FROM changesets c
@@ -1127,6 +1183,47 @@ const server = createServer(async (req, res) => {
         [id, user.id],
       )
       send(res, 200, { id, status: 'published', events: eventCount })
+      return
+    }
+
+    const reviewMatch = path.match(/^\/api\/changesets\/([^/]+)\/review$/)
+    if (method === 'POST' && reviewMatch) {
+      if (!user) {
+        send(res, 401, { error: 'unauthorized' })
+        return
+      }
+      const id = decodeURIComponent(reviewMatch[1] ?? '')
+      const body = await readJson<{ decision?: string; note?: string }>(req)
+      if (body.decision !== 'changes_requested' && body.decision !== 'rejected') {
+        send(res, 400, { error: 'decision' })
+        return
+      }
+      const allowed = user.role === 'superuser' ? { rowCount: 1 } : await pool.query(
+        `SELECT 1 FROM changesets c
+         JOIN moderation_areas area ON c.bounds IS NOT NULL AND ST_Covers(area.geom, c.bounds)
+           AND (cardinality(area.modes) = 0 OR c.mode = ANY(area.modes))
+         JOIN moderation_assignments assignment ON assignment.area_id = area.id
+         WHERE c.id = $1 AND c.status = 'submitted' AND assignment.user_id = $2`,
+        [id, user.id],
+      )
+      if (!allowed.rowCount) {
+        send(res, 403, { error: 'moderation area does not cover this changeset' })
+        return
+      }
+      const result = await pool.query(
+        `UPDATE changesets SET status = $1, updated_at = now()
+         WHERE id = $2 AND workspace_id = 'main' AND status = 'submitted' RETURNING id, status`,
+        [body.decision, id],
+      )
+      if (!result.rowCount) {
+        send(res, 409, { error: 'changeset cannot be reviewed' })
+        return
+      }
+      await pool.query(
+        `INSERT INTO changeset_reviews (changeset_id, reviewer_id, decision, comment) VALUES ($1, $2, $3, $4)`,
+        [id, user.id, body.decision, body.note?.trim() ?? ''],
+      )
+      send(res, 200, result.rows[0])
       return
     }
 

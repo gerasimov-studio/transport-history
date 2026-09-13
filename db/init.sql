@@ -73,6 +73,10 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language text
   CHECK (preferred_language IS NULL OR preferred_language IN ('en', 'sr', 'ru'));
+UPDATE users SET role = 'moderator' WHERE role = 'admin';
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check
+  CHECK (role IN ('user', 'moderator', 'superuser'));
 
 CREATE TABLE IF NOT EXISTS sessions (
   token text PRIMARY KEY,

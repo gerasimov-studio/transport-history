@@ -37,6 +37,10 @@ const messages = {
     'way.rail': 'Rail transport', 'way.road': 'Road transport',
     'mode.metro': 'Metro', 'mode.tram': 'Tram', 'mode.trolleybus': 'Trolleybus', 'mode.bus': 'Bus',
     'account.error': 'Error', 'account.publishError': 'Could not publish changes',
+    'account.register': 'Create account', 'account.haveAccount': 'I already have an account',
+    'account.passwordHint': 'At least 8 characters', 'account.users': 'Users', 'account.role': 'Role',
+    'account.user': 'User', 'account.moderator': 'Moderator', 'account.superuser': 'Superuser',
+    'account.requestChanges': 'Request changes', 'account.reject': 'Reject',
   },
   sr: {
     'app.title': 'Istorija saobraćaja', loading: 'Učitavanje…', map: 'Mapa', editor: 'Uređivač',
@@ -65,6 +69,10 @@ const messages = {
     'way.rail': 'Železnički saobraćaj', 'way.road': 'Drumski saobraćaj',
     'mode.metro': 'Metro', 'mode.tram': 'Tramvaj', 'mode.trolleybus': 'Trolejbus', 'mode.bus': 'Autobus',
     'account.error': 'Greška', 'account.publishError': 'Izmene nisu objavljene',
+    'account.register': 'Napravi nalog', 'account.haveAccount': 'Već imam nalog',
+    'account.passwordHint': 'Najmanje 8 znakova', 'account.users': 'Korisnici', 'account.role': 'Uloga',
+    'account.user': 'Korisnik', 'account.moderator': 'Moderator', 'account.superuser': 'Superkorisnik',
+    'account.requestChanges': 'Traži izmene', 'account.reject': 'Odbij',
   },
   ru: {
     'app.title': 'История транспорта', loading: 'Загрузка…', map: 'Карта', editor: 'Редактор',
@@ -93,6 +101,10 @@ const messages = {
     'way.rail': 'Рельсовый транспорт', 'way.road': 'Дорожный транспорт',
     'mode.metro': 'Метро', 'mode.tram': 'Трамвай', 'mode.trolleybus': 'Троллейбус', 'mode.bus': 'Автобус',
     'account.error': 'Ошибка', 'account.publishError': 'Не удалось опубликовать изменения',
+    'account.register': 'Создать аккаунт', 'account.haveAccount': 'У меня уже есть аккаунт',
+    'account.passwordHint': 'Минимум 8 символов', 'account.users': 'Пользователи', 'account.role': 'Роль',
+    'account.user': 'Пользователь', 'account.moderator': 'Модератор', 'account.superuser': 'Суперпользователь',
+    'account.requestChanges': 'Вернуть на доработку', 'account.reject': 'Отклонить',
   },
 } as const
 
