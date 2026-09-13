@@ -148,12 +148,15 @@ input {
 
 .brand__account {
   display: inline-block;
-  margin-top: 7px;
-  color: var(--muted);
+  margin-top: 9px;
+  padding: 4px 8px;
+  border: 1px solid rgba(215, 196, 163, 0.22);
+  border-radius: 3px;
+  background: rgba(14, 20, 28, 0.62);
+  color: rgba(244, 239, 230, 0.82);
   font-size: 12px;
   letter-spacing: 0.04em;
   text-decoration: none;
-  opacity: 0.82;
   pointer-events: auto;
   transition: color 150ms ease, opacity 150ms ease;
 }
