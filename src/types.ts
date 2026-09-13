@@ -175,12 +175,17 @@ export type RouteEntity = {
 }
 
 export type NetworkState = {
-  city: string
+  city?: string
   date: string
   infra: InfraEntity[]
   routes: RouteEntity[]
   chronicles: Snapshot[]
   features: NetworkFeature[]
+}
+
+export type MapViewport = {
+  zoom: number
+  bounds: { west: number; south: number; east: number; north: number }
 }
 
 export type Station = {

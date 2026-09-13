@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { MODE_COLORS, modeLabel, validityLabel, type RouteEntity, type TransportMode } from '../types'
+import { MODE_COLORS, validityLabel, type RouteEntity, type TransportMode } from '../types'
+import { useI18n } from '../i18n'
 
 type RoutesPanelProps = {
   routes: RouteEntity[]
@@ -10,21 +11,22 @@ type RoutesPanelProps = {
 
 export function RoutesPanel({ routes, hidden, onToggle, onSetMode }: RoutesPanelProps) {
   const [open, setOpen] = useState(true)
+  const { t } = useI18n()
   const grouped = groupByMode(routes)
   const visibleCount = routes.filter((route) => !hidden.has(route.id)).length
 
   return (
-    <section className={open ? 'hud-panel' : 'hud-panel is-collapsed'} aria-label="Маршруты">
+    <section className={open ? 'hud-panel' : 'hud-panel is-collapsed'} aria-label={t('routes.title')}>
       <button
         type="button"
         className="hud-panel__toggle"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="hud-panel__toggle-label">Маршруты</span>
+        <span className="hud-panel__toggle-label">{t('routes.title')}</span>
         {!open ? (
           <span className="hud-panel__toggle-meta">
-            {routes.length ? `${visibleCount} из ${routes.length}` : 'нет'}
+            {routes.length ? `${visibleCount} ${t('routes.of')} ${routes.length}` : t('history.none')}
           </span>
         ) : null}
         <Chevron open={open} />
@@ -32,20 +34,20 @@ export function RoutesPanel({ routes, hidden, onToggle, onSetMode }: RoutesPanel
       {open ? (
         <div className="routes-panel__body">
           {grouped.length === 0 ? (
-            <p className="routes-panel__empty">На эту дату маршрутов нет.</p>
+            <p className="routes-panel__empty">{t('routes.none')}</p>
           ) : (
             grouped.map((group) => {
               const allOn = group.routes.every((route) => !hidden.has(route.id))
               return (
                 <div key={group.mode} className="modes-group">
                   <div className="routes-group__head">
-                    <p className="modes-group__title">{modeLabel(group.mode)}</p>
+                    <p className="modes-group__title">{t(`mode.${group.mode}`)}</p>
                     <button
                       type="button"
                       className="routes-group__all"
                       onClick={() => onSetMode(group.mode, !allOn)}
                     >
-                      {allOn ? 'Скрыть' : 'Все'}
+                      {allOn ? t('routes.hide') : t('routes.all')}
                     </button>
                   </div>
                   <ul className="routes-list">
@@ -89,7 +91,7 @@ function groupByMode(routes: RouteEntity[]): { mode: TransportMode; routes: Rout
       routes: routes
         .filter((route) => route.mode === mode)
         .slice()
-        .sort((left, right) => left.number.localeCompare(right.number, 'ru', { numeric: true })),
+        .sort((left, right) => left.number.localeCompare(right.number, undefined, { numeric: true })),
     }))
     .filter((group) => group.routes.length > 0)
 }

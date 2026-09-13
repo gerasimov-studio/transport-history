@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import {
   TRANSPORT_WAYS,
-  modeLabel,
   modesForWay,
   type TransportMode,
 } from '../types'
+import { useI18n } from '../i18n'
 
 type ModesPanelProps = {
   modes: Record<TransportMode, boolean>
@@ -13,21 +13,22 @@ type ModesPanelProps = {
 
 export function ModesPanel({ modes, onToggle }: ModesPanelProps) {
   const [open, setOpen] = useState(true)
+  const { t } = useI18n()
   const enabled = (Object.keys(modes) as TransportMode[])
     .filter((mode) => modes[mode])
-    .map((mode) => modeLabel(mode))
+    .map((mode) => t(`mode.${mode}`))
 
   return (
-    <section className={open ? 'hud-panel' : 'hud-panel is-collapsed'} aria-label="Виды транспорта">
+    <section className={open ? 'hud-panel' : 'hud-panel is-collapsed'} aria-label={t('modes.title')}>
       <button
         type="button"
         className="hud-panel__toggle"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
-        <span className="hud-panel__toggle-label">Виды транспорта</span>
+        <span className="hud-panel__toggle-label">{t('modes.title')}</span>
         {!open ? (
-          <span className="hud-panel__toggle-meta">{enabled.join(' · ') || 'скрыты'}</span>
+          <span className="hud-panel__toggle-meta">{enabled.join(' · ') || t('modes.hidden')}</span>
         ) : null}
         <Chevron open={open} />
       </button>
@@ -35,7 +36,7 @@ export function ModesPanel({ modes, onToggle }: ModesPanelProps) {
         <div className="modes-panel__body">
           {TRANSPORT_WAYS.map((way) => (
             <div key={way.id} className="modes-group">
-              <p className="modes-group__title">{way.label}</p>
+              <p className="modes-group__title">{t(`way.${way.id}`)}</p>
               <ul className="modes-list">
                 {modesForWay(way.id).map((mode) => (
                   <li key={mode}>
@@ -45,7 +46,7 @@ export function ModesPanel({ modes, onToggle }: ModesPanelProps) {
                         checked={modes[mode]}
                         onChange={() => onToggle(mode)}
                       />
-                      <span>{modeLabel(mode)}</span>
+                      <span>{t(`mode.${mode}`)}</span>
                     </label>
                   </li>
                 ))}

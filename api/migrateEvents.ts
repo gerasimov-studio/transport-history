@@ -132,8 +132,8 @@ export async function migrateLegacySnapshotsToEvents(pool: pg.Pool) {
     await client.query('BEGIN')
     for (const event of events) {
       await client.query(
-        `INSERT INTO events (type, occurred_on, city_id, actor, payload)
-         VALUES ($1, $2, $3, $4, $5::jsonb)`,
+        `INSERT INTO events (type, occurred_on, city_id, scope_id, actor, payload)
+         VALUES ($1, $2, $3, $3, $4, $5::jsonb)`,
         [event.type, event.occurredOn, event.cityId, event.actor, JSON.stringify(event.payload)],
       )
     }

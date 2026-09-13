@@ -1,11 +1,11 @@
 import L from 'leaflet'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { MapContainer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import { collectSnapGraph, snapDrawPoint, type SnapGraph } from '../../map/snap'
 import { TrackShape } from '../../map/TrackShape'
-import { cityInReach, featureAtZoom, featureInView, useMapView } from '../../map/lod'
+import { featureAtZoom, featureInView, useMapView } from '../../map/lod'
 import { routeRibbons } from '../../map/segmentLabels'
-import { infraAliveAt, periodsOverlap, sameGauge, type CatalogCity, type NetworkFeature, type TrackGrade } from '../../types'
+import { infraAliveAt, periodsOverlap, sameGauge, type CatalogCity, type MapViewport, type NetworkFeature, type TrackGrade } from '../../types'
 import { Basemap } from '../Basemap'
 import { RouteShields } from '../RouteShields'
 
@@ -32,6 +32,7 @@ type EditorMapProps = {
   onMapClick: (lng: number, lat: number) => void
   onMoveVertex: (key: string, index: number, coord: [number, number]) => void
   onMovePoint: (key: string, coord: [number, number]) => void
+  onViewportChange?: (view: MapViewport) => void
 }
 
 const vertexIcon = new L.DivIcon({
@@ -65,6 +66,7 @@ export function EditorMap({
   onMapClick,
   onMoveVertex,
   onMovePoint,
+  onViewportChange,
 }: EditorMapProps) {
   const renderer = useMemo(() => L.canvas({ padding: 0.55, tolerance: 12 }), [])
   const snapGraph = collectSnapGraph(features, {
@@ -81,8 +83,8 @@ export function EditorMap({
         className="map-stage__leaflet"
         center={city.center}
         zoom={13}
-        minZoom={8}
-        maxZoom={20}
+        minZoom={2}
+        maxZoom={22}
         zoomControl={false}
         attributionControl={false}
         scrollWheelZoom
@@ -97,7 +99,6 @@ export function EditorMap({
           onMapClick={onMapClick}
         />
         <EditorNetwork
-          city={city}
           features={features}
           selectedKey={selectedKey}
           tool={tool}
@@ -113,6 +114,7 @@ export function EditorMap({
           onSelect={onSelect}
           onMoveVertex={onMoveVertex}
           onMovePoint={onMovePoint}
+          onViewportChange={onViewportChange}
         />
       </MapContainer>
     </div>
@@ -120,7 +122,6 @@ export function EditorMap({
 }
 
 function EditorNetwork({
-  city,
   features,
   selectedKey,
   tool,
@@ -136,8 +137,8 @@ function EditorNetwork({
   onSelect,
   onMoveVertex,
   onMovePoint,
+  onViewportChange,
 }: {
-  city: CatalogCity
   features: DraftFeature[]
   selectedKey: string | null
   tool: DrawTool
@@ -153,12 +154,21 @@ function EditorNetwork({
   onSelect: (feature: DraftFeature) => void
   onMoveVertex: (key: string, index: number, coord: [number, number]) => void
   onMovePoint: (key: string, coord: [number, number]) => void
+  onViewportChange?: (view: MapViewport) => void
 }) {
-  const map = useMap()
+  useMap()
   const view = useMapView()
-  if (!cityInReach(city, map)) {
-    return null
-  }
+  useEffect(() => {
+    onViewportChange?.({
+      zoom: view.zoom,
+      bounds: {
+        west: view.bounds.getWest(),
+        south: view.bounds.getSouth(),
+        east: view.bounds.getEast(),
+        north: view.bounds.getNorth(),
+      },
+    })
+  }, [onViewportChange, view])
   const visible = features.filter((feature) => {
     const selected =
       feature.properties.layer === 'route'

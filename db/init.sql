@@ -70,6 +70,10 @@ CREATE TABLE IF NOT EXISTS users (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'user';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_language text
+  CHECK (preferred_language IS NULL OR preferred_language IN ('en', 'sr', 'ru'));
+
 CREATE TABLE IF NOT EXISTS sessions (
   token text PRIMARY KEY,
   user_id integer NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -90,3 +94,101 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 CREATE INDEX IF NOT EXISTS events_city_date_idx ON events (city_id, occurred_on, id);
+
+ALTER TABLE events ADD COLUMN IF NOT EXISTS scope_id text;
+UPDATE events SET scope_id = COALESCE(scope_id, city_id, 'world') WHERE scope_id IS NULL;
+ALTER TABLE events ALTER COLUMN scope_id SET DEFAULT 'world';
+ALTER TABLE events ALTER COLUMN scope_id SET NOT NULL;
+ALTER TABLE events ALTER COLUMN city_id DROP NOT NULL;
+CREATE INDEX IF NOT EXISTS events_scope_date_idx ON events (scope_id, occurred_on, id);
+
+-- Spatial read model. Events remain the source of truth; this projection makes
+-- viewport reads independent from administrative boundaries.
+CREATE TABLE IF NOT EXISTS network_infra (
+  id text PRIMARY KEY,
+  source_scope text NOT NULL,
+  kind text NOT NULL,
+  way text NOT NULL,
+  valid_from date,
+  valid_to date,
+  payload jsonb NOT NULL,
+  geom geometry(Geometry, 4326) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS network_infra_geom_gix ON network_infra USING GIST (geom);
+CREATE INDEX IF NOT EXISTS network_infra_validity_idx ON network_infra (valid_from, valid_to);
+
+CREATE TABLE IF NOT EXISTS network_routes (
+  id text PRIMARY KEY,
+  source_scope text NOT NULL,
+  mode text NOT NULL,
+  valid_from date,
+  valid_to date,
+  segment_ids text[] NOT NULL,
+  payload jsonb NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS network_routes_segments_gin ON network_routes USING GIN (segment_ids);
+CREATE INDEX IF NOT EXISTS network_routes_validity_idx ON network_routes (valid_from, valid_to);
+
+CREATE TABLE IF NOT EXISTS workspaces (
+  id text PRIMARY KEY,
+  kind text NOT NULL CHECK (kind IN ('canonical', 'scenario')),
+  owner_id integer REFERENCES users (id) ON DELETE CASCADE,
+  title text NOT NULL,
+  description text NOT NULL DEFAULT '',
+  visibility text NOT NULL DEFAULT 'private' CHECK (visibility IN ('private', 'link', 'public')),
+  base_workspace_id text REFERENCES workspaces (id),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO workspaces (id, kind, title, visibility)
+VALUES ('main', 'canonical', 'Основная мировая карта', 'public')
+ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS changesets (
+  id text PRIMARY KEY,
+  workspace_id text NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+  author_id integer NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'draft'
+    CHECK (status IN ('draft', 'submitted', 'changes_requested', 'rejected', 'published')),
+  effective_on date NOT NULL,
+  mode text NOT NULL,
+  title text NOT NULL DEFAULT '',
+  summary text NOT NULL DEFAULT '',
+  operations jsonb NOT NULL,
+  bounds geometry(Geometry, 4326),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  submitted_at timestamptz,
+  published_at timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS changesets_workspace_status_idx ON changesets (workspace_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS changesets_bounds_gix ON changesets USING GIST (bounds);
+
+CREATE TABLE IF NOT EXISTS moderation_areas (
+  id text PRIMARY KEY,
+  title text NOT NULL,
+  modes text[] NOT NULL DEFAULT '{}',
+  geom geometry(MultiPolygon, 4326) NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS moderation_areas_geom_gix ON moderation_areas USING GIST (geom);
+
+CREATE TABLE IF NOT EXISTS moderation_assignments (
+  area_id text NOT NULL REFERENCES moderation_areas (id) ON DELETE CASCADE,
+  user_id integer NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (area_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS changeset_reviews (
+  id bigserial PRIMARY KEY,
+  changeset_id text NOT NULL REFERENCES changesets (id) ON DELETE CASCADE,
+  reviewer_id integer NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+  decision text NOT NULL CHECK (decision IN ('published', 'changes_requested', 'rejected')),
+  comment text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now()
+);

@@ -1,10 +1,10 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { MapContainer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { TrackShape } from '../map/TrackShape'
-import { cityInPlay, featureAtZoom, featureInView, useMapView } from '../map/lod'
+import { featureAtZoom, featureInView, useMapView } from '../map/lod'
 import { routeRibbons } from '../map/segmentLabels'
-import type { CatalogCity, NetworkFeature } from '../types'
+import type { CatalogCity, MapViewport, NetworkFeature } from '../types'
 import { Basemap } from './Basemap'
 import { RouteShields } from './RouteShields'
 
@@ -18,9 +18,10 @@ type MapStageProps = {
   city: CatalogCity
   features: ViewerFeature[]
   highlight?: boolean
+  onViewportChange?: (view: MapViewport) => void
 }
 
-export function MapStage({ city, features, highlight = false }: MapStageProps) {
+export function MapStage({ city, features, highlight = false, onViewportChange }: MapStageProps) {
   const renderer = useMemo(() => L.canvas({ padding: 0.55, tolerance: 12 }), [])
   return (
     <div className="map-stage">
@@ -37,26 +38,34 @@ export function MapStage({ city, features, highlight = false }: MapStageProps) {
         renderer={renderer}
       >
         <Basemap />
-        <ViewerNetwork city={city} features={features} highlight={highlight} />
+        <ViewerNetwork features={features} highlight={highlight} onViewportChange={onViewportChange} />
       </MapContainer>
     </div>
   )
 }
 
 function ViewerNetwork({
-  city,
   features,
   highlight,
+  onViewportChange,
 }: {
-  city: CatalogCity
   features: ViewerFeature[]
   highlight: boolean
+  onViewportChange?: (view: MapViewport) => void
 }) {
-  const map = useMap()
+  useMap()
   const view = useMapView()
-  if (!cityInPlay(city, map)) {
-    return null
-  }
+  useEffect(() => {
+    onViewportChange?.({
+      zoom: view.zoom,
+      bounds: {
+        west: view.bounds.getWest(),
+        south: view.bounds.getSouth(),
+        east: view.bounds.getEast(),
+        north: view.bounds.getNorth(),
+      },
+    })
+  }, [onViewportChange, view])
   const visible = features.filter(
     (feature) => featureAtZoom(feature, view.zoom) && featureInView(feature, view.bounds),
   )

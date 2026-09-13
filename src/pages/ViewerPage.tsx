@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { HistoryPanel } from '../components/HistoryPanel'
 import { MapStage, type ViewerFeature } from '../components/MapStage'
 import { ModesPanel } from '../components/ModesPanel'
@@ -6,9 +7,10 @@ import { RoutesPanel } from '../components/RoutesPanel'
 import { Timeline } from '../components/Timeline'
 import { currentSnapshots, formatSnapshotDate, nearestDate, snapshotDates, snapshotsForCity } from '../data/snapshots'
 import { useCatalog } from '../data/useCatalog'
-import { useNetworkState } from '../data/useNetworkState'
+import { useViewportState } from '../data/useViewportState'
 import { diffNetwork, hasDiff } from '../map/diffNetwork'
-import { infraAliveAt, infraWay, wayEnabled, type TransportMode } from '../types'
+import { useI18n } from '../i18n'
+import { infraAliveAt, infraWay, wayEnabled, type MapViewport, type TransportMode } from '../types'
 
 const initialModes: Record<TransportMode, boolean> = {
   metro: true,
@@ -18,11 +20,16 @@ const initialModes: Record<TransportMode, boolean> = {
 }
 
 export function ViewerPage() {
+  const { t } = useI18n()
+  const [searchParams] = useSearchParams()
+  const workspaceId = searchParams.get('workspace') || 'main'
   const { catalog, error: catalogError } = useCatalog({ loadNetworks: false })
   const [date, setDate] = useState<string | null>(null)
   const [modes, setModes] = useState(initialModes)
   const [hiddenRoutes, setHiddenRoutes] = useState<Set<string>>(new Set())
   const [showChanges, setShowChanges] = useState(false)
+  const [viewport, setViewport] = useState<MapViewport | null>(null)
+  const [exportBasemap, setExportBasemap] = useState(true)
 
   const city = catalog?.cities[0]
   const citySnapshots = useMemo(
@@ -54,8 +61,8 @@ export function ViewerPage() {
     const index = dates.indexOf(selectedDate)
     return index > 0 ? (dates[index - 1] ?? null) : null
   }, [dates, selectedDate])
-  const { state, error: stateError } = useNetworkState(city?.id, selectedDate)
-  const { state: previous } = useNetworkState(city?.id, previousDate)
+  const { state, error: stateError } = useViewportState(viewport, selectedDate, workspaceId)
+  const { state: previous } = useViewportState(viewport, previousDate, workspaceId)
   const activeSnapshots = useMemo(
     () =>
       selectedDate
@@ -129,15 +136,14 @@ export function ViewerPage() {
   }
 
   if (!catalog || !city) {
-    return <p className="app-status">Загрузка каталога…</p>
+    return <p className="app-status">{t('loading')}</p>
   }
 
   return (
     <div className="app">
-      <MapStage city={city} features={features} highlight={showChanges} />
+      <MapStage city={city} features={features} highlight={showChanges} onViewportChange={setViewport} />
       <header className="brand">
-        <p className="brand__kicker">Транспортная история</p>
-        <h1 className="brand__title">{city.name}</h1>
+        <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
       </header>
       <div className="side-dock">
         <ModesPanel
@@ -183,17 +189,31 @@ export function ViewerPage() {
             onChange={(event) => setShowChanges(event.target.checked)}
           />
           <span>
-            Изменения
+            {t('viewer.changes')}
             {previousDate ? (
               <small>
-                {hasDiff(diff) ? `с ${formatSnapshotDate(previousDate)}` : 'без отличий'}
+                {hasDiff(diff) ? formatSnapshotDate(previousDate) : t('viewer.noDifferences')}
               </small>
             ) : (
-              <small>первая дата</small>
+              <small>{t('viewer.firstDate')}</small>
             )}
           </span>
         </label>
         <HistoryPanel date={selectedDate} snapshots={activeSnapshots} routeLabels={routeLabels} />
+        {viewport && selectedDate ? (
+          <div className="hud-panel export-panel">
+            <label>
+              <input type="checkbox" checked={exportBasemap} onChange={(event) => setExportBasemap(event.target.checked)} />
+              {t('viewer.basemap')}
+            </label>
+            <a
+              download={`transport-${selectedDate}.svg`}
+              href={`/api/export.svg?bbox=${encodeURIComponent([viewport.bounds.west, viewport.bounds.south, viewport.bounds.east, viewport.bounds.north].join(','))}&date=${encodeURIComponent(selectedDate)}&zoom=${viewport.zoom}&workspace=${encodeURIComponent(workspaceId)}&basemap=${exportBasemap ? '1' : '0'}`}
+            >
+              {t('viewer.export')}
+            </a>
+          </div>
+        ) : null}
       </div>
       {selectedDate ? (
         <Timeline dates={dates} date={selectedDate} onDateChange={(next) => setDate(next)} />

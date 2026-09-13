@@ -28,7 +28,7 @@ export type SnapMatch = {
   level?: number
 }
 
-const MAX_PIXELS = 16
+const MAX_PIXELS = 8
 const TURN_STEP = 15
 
 export function collectSnapGraph(
@@ -121,9 +121,6 @@ export function snapDrawPoint(
   graph: SnapGraph,
   options: { lockTurns: boolean; from?: [number, number] },
 ): [number, number] {
-  if (!options.lockTurns) {
-    return point
-  }
   const hooked =
     nearestOf(map, point, graph.endpoints, MAX_PIXELS) ??
     nearestOf(map, point, graph.vertices, MAX_PIXELS) ??
@@ -131,7 +128,7 @@ export function snapDrawPoint(
   if (hooked) {
     return hooked
   }
-  if (options.from) {
+  if (options.lockTurns && options.from) {
     return lockTurn(map, options.from, point)
   }
   return point

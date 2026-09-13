@@ -32,6 +32,7 @@ import {
 import { Timeline } from '../Timeline'
 import { YearRangeSlider } from '../YearRangeSlider'
 import type { DrawTool } from './EditorMap'
+import { useI18n } from '../../i18n'
 
 export type DraftNetwork = {
   city: string
@@ -110,6 +111,8 @@ type StudioPanelProps = {
   onMoveSegment: (id: string, direction: -1 | 1) => void
   onRemoveSegment: (id: string) => void
   onSave: () => void
+  canSubmit: boolean
+  onSubmit: () => void
   onLogout: () => void
 }
 
@@ -158,8 +161,11 @@ export function StudioPanel({
   onMoveSegment,
   onRemoveSegment,
   onSave,
+  canSubmit,
+  onSubmit,
   onLogout,
 }: StudioPanelProps) {
+  const { t } = useI18n()
   const infra = draft.infra.filter((entity) => infraWay(entity) === draft.way)
   const routes = draft.routes.filter((entity) => entity.mode === draft.mode)
   const selectedInfra = infra.find((entity) => entity.id === selectedInfraId)
@@ -218,17 +224,18 @@ export function StudioPanel({
     <aside className="studio-rail">
       <header className="studio-rail__head">
         <div>
-          <p className="studio-rail__kicker">Студия</p>
+          <p className="studio-rail__kicker">{t('login.studio')}</p>
           <p className="studio-rail__user">{username}</p>
         </div>
-        <button type="button" className="studio-btn studio-btn--ghost" onClick={onLogout}>
-          Выйти
-        </button>
+        <div className="studio-tools">
+          <a className="studio-btn studio-btn--ghost" href="/account">{t('studio.mySpace')}</a>
+          <button type="button" className="studio-btn studio-btn--ghost" onClick={onLogout}>{t('studio.logout')}</button>
+        </div>
       </header>
 
       <section className="studio-section">
         <div className="studio-section__title-row">
-          <h2>Даты</h2>
+          <h2>{t('studio.dates')}</h2>
           <button type="button" className="studio-btn" onClick={onNewDate}>
             Новая
           </button>
@@ -237,7 +244,7 @@ export function StudioPanel({
       </section>
 
       <section className="studio-section">
-        <h2>Статья</h2>
+        <h2>{t('studio.article')}</h2>
         <label className="studio-field">
           Дата
           <input
@@ -274,7 +281,7 @@ export function StudioPanel({
       </section>
 
       <section className="studio-section">
-        <h2>Сеть</h2>
+        <h2>{t('studio.network')}</h2>
         <div className="studio-tabs">
           {TRANSPORT_WAYS.map((way) => (
             <button
@@ -293,14 +300,14 @@ export function StudioPanel({
             className={draft.layer === 'infra' ? 'studio-btn is-on' : 'studio-btn'}
             onClick={() => onChange({ layer: 'infra' })}
           >
-            Инфраструктура
+            {t('studio.infrastructure')}
           </button>
           <button
             type="button"
             className={draft.layer === 'route' ? 'studio-btn is-on' : 'studio-btn'}
             onClick={() => onChange({ layer: 'route' })}
           >
-            Маршруты
+            {t('studio.routes')}
           </button>
         </div>
         <div className="studio-fields-row">
@@ -682,7 +689,10 @@ export function StudioPanel({
         {message ? <p className="studio-message">{message}</p> : null}
         <div className="studio-tools">
           <button type="button" className="studio-btn studio-btn--primary" disabled={saving} onClick={onSave}>
-            {saving ? 'Сохранение…' : dirty ? 'Записать события' : 'Сохранено'}
+            {saving ? t('studio.saving') : dirty ? t('studio.saveDraft') : t('studio.saved')}
+          </button>
+          <button type="button" className="studio-btn" disabled={!canSubmit || saving} onClick={onSubmit}>
+            {t('studio.submit')}
           </button>
         </div>
         <p className="studio-hint">

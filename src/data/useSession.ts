@@ -3,6 +3,8 @@ import { api } from '../lib/api'
 
 export type EditorUser = {
   username: string
+  role: string
+  preferredLanguage: string | null
 }
 
 export function useSession() {

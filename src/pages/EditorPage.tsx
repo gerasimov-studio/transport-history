@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { EditorMap, type DraftFeature, type DrawTool } from '../components/editor/EditorMap'
 import { StudioPanel, type DraftNetwork } from '../components/editor/StudioPanel'
 import { useCatalog } from '../data/useCatalog'
 import { useSession } from '../data/useSession'
 import { api } from '../lib/api'
+import { useI18n } from '../i18n'
 import {
   MODE_COLORS,
   WAY_COLORS,
@@ -23,6 +25,7 @@ import {
   wayOf,
   type InfraEntity,
   type NetworkState,
+  type MapViewport,
   type NodeKind,
   type RouteEntity,
   type Snapshot,
@@ -36,12 +39,12 @@ function today() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function newInfraId(city: string, way: string, kind: InfraEntity['kind']) {
-  return `infra:${city}:${way}:${kind}:${crypto.randomUUID()}`
+function newInfraId(way: string, kind: InfraEntity['kind']) {
+  return `infra:${way}:${kind}:${crypto.randomUUID()}`
 }
 
-function routeId(city: string, mode: string, number: string) {
-  return `route:${city}:${mode}:${number.trim() || '1'}`
+function newRouteId(mode: string) {
+  return `route:${mode}:${crypto.randomUUID()}`
 }
 
 function railProfile(way: TransportWay, grade: TrackGrade, level: number, portal = false) {
@@ -151,6 +154,9 @@ function routeToFeatures(route: RouteEntity, infra: InfraEntity[]): DraftFeature
 }
 
 export function EditorPage() {
+  const { t } = useI18n()
+  const [searchParams] = useSearchParams()
+  const workspaceId = searchParams.get('workspace') || 'main'
   const { user, loading, setUser } = useSession()
   const { catalog, error, reload } = useCatalog({ loadNetworks: false })
   const [draft, setDraft] = useState<DraftNetwork | null>(null)
@@ -167,30 +173,37 @@ export function EditorPage() {
   const [drawLevel, setDrawLevel] = useState(-1)
   const [drawSince, setDrawSince] = useState(today())
   const [drawUntil, setDrawUntil] = useState('')
-  const [lockTurns, setLockTurns] = useState(true)
+  const [lockTurns, setLockTurns] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
+  const [viewport, setViewport] = useState<MapViewport | null>(null)
+  const [changeSetId, setChangeSetId] = useState<string | null>(null)
 
   const city = catalog?.cities[0]
   const dates = catalog?.dates ?? []
   const booted = useRef(false)
   const dirty = useMemo(() => (draft ? JSON.stringify(draft) !== baseline : false), [baseline, draft])
+  const dirtyRef = useRef(dirty)
+
+  useEffect(() => {
+    dirtyRef.current = dirty
+  }, [dirty])
 
   async function login(event: FormEvent) {
     event.preventDefault()
     setLoginError(null)
     try {
-      const body = await api<{ user: { username: string } }>('/api/login', {
+      const body = await api<{ user: { username: string; role: string; preferredLanguage: string | null } }>('/api/login', {
         method: 'POST',
         body: JSON.stringify({ username, password }),
       })
       setUser(body.user)
       setPassword('')
     } catch {
-      setLoginError('Неверный логин или пароль')
+      setLoginError(t('login.error'))
     }
   }
 
@@ -199,14 +212,28 @@ export function EditorPage() {
     setUser(null)
   }
 
-  async function loadDate(date: string, way: TransportWay, mode: TransportMode, layer: DraftNetwork['layer']) {
+  const loadDate = useCallback(async function loadDate(
+    date: string,
+    way: TransportWay,
+    mode: TransportMode,
+    layer: DraftNetwork['layer'],
+    preserveEdits = false,
+  ) {
     if (!city) {
       return
     }
+    const bounds = viewport?.bounds ?? {
+      west: city.center[1] - 0.75,
+      south: city.center[0] - 0.45,
+      east: city.center[1] + 0.75,
+      north: city.center[0] + 0.45,
+    }
+    const bbox = [bounds.west, bounds.south, bounds.east, bounds.north].join(',')
     const state = await api<NetworkState>(
-      `/api/state?city=${encodeURIComponent(city.id)}&date=${encodeURIComponent(date)}`,
+      `/api/map?bbox=${encodeURIComponent(bbox)}&date=${encodeURIComponent(date)}&zoom=${viewport?.zoom ?? 13}&detail=editor&workspace=${encodeURIComponent(workspaceId)}`,
     )
-    const next = fromState(city.id, date, way, mode, layer, state)
+    if (preserveEdits && dirtyRef.current) return
+    const next = fromState('world', date, way, mode, layer, state)
     setChronicles(state.chronicles)
     setDraft(next)
     setBaseline(JSON.stringify(next))
@@ -216,7 +243,8 @@ export function EditorPage() {
     setDrawSince(date)
     setDrawUntil('')
     setMessage(null)
-  }
+    setChangeSetId(null)
+  }, [city, viewport, workspaceId])
 
   useEffect(() => {
     if (!user || !city || !catalog || booted.current) {
@@ -224,7 +252,20 @@ export function EditorPage() {
     }
     booted.current = true
     void loadDate(catalog.dates.at(-1) ?? today(), 'rail', 'tram', 'infra')
-  }, [user, city, catalog])
+  }, [user, city, catalog, loadDate])
+
+  const draftDate = draft?.date
+  const draftWay = draft?.way
+  const draftMode = draft?.mode
+  const draftLayer = draft?.layer
+
+  useEffect(() => {
+    if (!user || !viewport || !draftDate || !draftWay || !draftMode || !draftLayer || dirty) return
+    const timer = window.setTimeout(() => {
+      void loadDate(draftDate, draftWay, draftMode, draftLayer, true)
+    }, 180)
+    return () => window.clearTimeout(timer)
+  }, [viewport, user, dirty, draftDate, draftWay, draftMode, draftLayer, loadDate])
 
   function confirmLeave() {
     return !dirty || window.confirm('Есть несохранённые правки. Продолжить?')
@@ -305,7 +346,7 @@ export function EditorPage() {
       return
     }
     if (tool === 'stop') {
-      const id = newInfraId(draft.city, draft.way, 'stop')
+      const id = newInfraId(draft.way, 'stop')
       const entity: InfraEntity = {
         id,
         kind: 'stop',
@@ -363,7 +404,7 @@ export function EditorPage() {
         }
       }
       const isNode = tool === 'node'
-      const id = newInfraId(draft.city, draft.way, isNode ? 'node' : 'track')
+      const id = newInfraId(draft.way, isNode ? 'node' : 'track')
       const entity: InfraEntity = {
         id,
         kind: isNode ? 'node' : 'track',
@@ -386,7 +427,7 @@ export function EditorPage() {
     if (tool !== 'node') {
       return
     }
-    const id = newInfraId(draft.city, draft.way, 'node')
+    const id = newInfraId(draft.way, 'node')
     const entity: InfraEntity = {
       id,
       kind: 'node',
@@ -462,28 +503,41 @@ export function EditorPage() {
     if (!draft) {
       return
     }
+    const before = JSON.parse(baseline) as DraftNetwork
+    const beforeInfra = new Map(before.infra.map((entity) => [entity.id, entity]))
+    const beforeRoutes = new Map(before.routes.map((route) => [route.id, route]))
+    const currentInfra = draft.infra.filter(
+      (entity) => entity.geometry.type !== 'LineString' || entity.geometry.coordinates.length >= 2,
+    )
+    const upsertInfra = currentInfra.filter(
+      (entity) => JSON.stringify(entity) !== JSON.stringify(beforeInfra.get(entity.id)),
+    )
+    const upsertRoutes = draft.routes.filter(
+      (route) => JSON.stringify(route) !== JSON.stringify(beforeRoutes.get(route.id)),
+    )
+    const currentInfraIds = new Set(currentInfra.map((entity) => entity.id))
+    const currentRouteIds = new Set(draft.routes.map((route) => route.id))
     setSaving(true)
     setMessage(null)
     try {
-      await api('/api/commit', {
+      const saved = await api<{ id: string; status: string; operations: number }>('/api/objects/commit', {
         method: 'POST',
         body: JSON.stringify({
-          city: draft.city,
           date: draft.date,
-          way: draft.way,
           mode: draft.mode,
+          changeSetId,
+          workspaceId,
           title: draft.title.trim(),
           summary: draft.summary,
-          infra: draft.infra.filter(
-            (entity) =>
-              infraWay(entity) === draft.way &&
-              (entity.geometry.type !== 'LineString' || entity.geometry.coordinates.length >= 2),
-          ),
-          routes: draft.routes.filter((entity) => entity.mode === draft.mode),
+          upsertInfra,
+          removeInfra: before.infra.map((entity) => entity.id).filter((id) => !currentInfraIds.has(id)),
+          upsertRoutes,
+          removeRoutes: before.routes.map((route) => route.id).filter((id) => !currentRouteIds.has(id)),
         }),
       })
+      setChangeSetId(saved.id)
       setBaseline(JSON.stringify(draft))
-      setMessage('События записаны')
+      setMessage(`Черновик сохранён · ${saved.operations} изменений`)
       reload()
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : 'Не удалось сохранить')
@@ -492,21 +546,36 @@ export function EditorPage() {
     }
   }
 
+  async function submitForReview() {
+    if (!changeSetId || dirty) return
+    setSaving(true)
+    setMessage(null)
+    try {
+      await api(`/api/changesets/${encodeURIComponent(changeSetId)}/submit`, { method: 'POST' })
+      setMessage('Изменения отправлены на модерацию')
+      setChangeSetId(null)
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : 'Не удалось отправить изменения')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (loading) {
-    return <p className="app-status">Вход…</p>
+    return <p className="app-status">{t('loading')}</p>
   }
 
   if (!user) {
     return (
       <div className="gate">
         <form className="gate__card" onSubmit={login}>
-          <p className="gate__kicker">Студия</p>
-          <h1 className="gate__title">Правка сети</h1>
+          <p className="gate__kicker">{t('login.studio')}</p>
+          <h1 className="gate__title">{t('login.title')}</h1>
           <p className="gate__lead">
             Сначала рельсы или улицы, затем маршруты по ним. Публичной ссылки нет.
           </p>
           <label className="studio-field">
-            Логин
+            {t('login.username')}
             <input
               autoComplete="username"
               value={username}
@@ -514,7 +583,7 @@ export function EditorPage() {
             />
           </label>
           <label className="studio-field">
-            Пароль
+            {t('login.password')}
             <input
               type="password"
               autoComplete="current-password"
@@ -524,7 +593,7 @@ export function EditorPage() {
           </label>
           {loginError ? <p className="studio-message">{loginError}</p> : null}
           <button type="submit" className="studio-btn studio-btn--primary">
-            Войти
+            {t('login.submit')}
           </button>
         </form>
       </div>
@@ -536,7 +605,7 @@ export function EditorPage() {
   }
 
   if (!city || !draft) {
-    return <p className="app-status">Загрузка студии…</p>
+    return <p className="app-status">{t('loading')}</p>
   }
 
   const infraOfWay = draft.infra.filter((entity) => infraWay(entity) === draft.way)
@@ -628,6 +697,7 @@ export function EditorPage() {
             entity.geometry.type === 'Point' ? { ...entity, geometry: { type: 'Point', coordinates: coord } } : entity,
           )
         }
+        onViewportChange={setViewport}
       />
       <StudioPanel
         username={user.username}
@@ -796,9 +866,6 @@ export function EditorPage() {
         }}
         onChangeRoute={(id, patch) => {
           const number = patch.number !== undefined ? patch.number.trim() || '1' : undefined
-          if (number !== undefined) {
-            setSelectedRouteId(routeId(draft.city, draft.mode, number))
-          }
           setDraft((current) => {
             if (!current) {
               return current
@@ -814,7 +881,6 @@ export function EditorPage() {
                   ...route,
                   ...patch,
                   number: nextNumber,
-                  id: number !== undefined ? routeId(current.city, current.mode, nextNumber) : route.id,
                 }
               }),
             }
@@ -822,16 +888,7 @@ export function EditorPage() {
         }}
         onAddRoute={() => {
           const number = drawNumber.trim() || '1'
-          const id = routeId(draft.city, draft.mode, number)
-          const existing = draft.routes.find((route) => route.id === id)
-          if (existing) {
-            setSelectedRouteId(id)
-            if (existing.since) {
-              setDrawSince(existing.since)
-            }
-            setDrawUntil(existing.until ?? '')
-            return
-          }
+          const id = newRouteId(draft.mode)
           const route: RouteEntity = {
             id,
             mode: draft.mode,
@@ -886,6 +943,8 @@ export function EditorPage() {
         }}
         onRemoveSegment={(segmentId) => toggleSegment(segmentId)}
         onSave={() => void save()}
+        canSubmit={Boolean(changeSetId) && !dirty}
+        onSubmit={() => void submitForReview()}
         onLogout={() => void logout()}
       />
     </div>

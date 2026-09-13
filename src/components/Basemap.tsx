@@ -10,7 +10,7 @@ export function Basemap({ zoomPosition = 'bottomleft' }: BasemapProps) {
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        maxZoom={20}
+        maxZoom={22}
         maxNativeZoom={19}
         detectRetina
       />

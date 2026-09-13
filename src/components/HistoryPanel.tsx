@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { formatSnapshotDate } from '../data/snapshots'
-import { modeLabel } from '../types'
 import type { Snapshot } from '../types'
+import { useI18n } from '../i18n'
 
 type HistoryPanelProps = {
   date: string | null
@@ -11,13 +11,14 @@ type HistoryPanelProps = {
 
 export function HistoryPanel({ date, snapshots, routeLabels = {} }: HistoryPanelProps) {
   const [open, setOpen] = useState(true)
+  const { t } = useI18n()
   const primary = snapshots[0]
   const year = date?.slice(0, 4) ?? '—'
 
   return (
     <aside
       className={open ? 'hud-panel history-panel' : 'hud-panel history-panel is-collapsed'}
-      aria-label="Исторический контекст"
+      aria-label={t('history.title')}
     >
       <button
         type="button"
@@ -26,10 +27,10 @@ export function HistoryPanel({ date, snapshots, routeLabels = {} }: HistoryPanel
         onClick={() => setOpen((value) => !value)}
       >
         <span className="hud-panel__toggle-label">
-          {open ? 'Историческая справка' : year}
+          {open ? t('history.title') : year}
         </span>
         {!open ? (
-          <span className="hud-panel__toggle-meta">{primary?.title ?? 'Нет данных'}</span>
+          <span className="hud-panel__toggle-meta">{primary?.title ?? t('history.none')}</span>
         ) : null}
         <svg
           className={open ? 'hud-panel__chevron is-open' : 'hud-panel__chevron'}
@@ -51,11 +52,11 @@ export function HistoryPanel({ date, snapshots, routeLabels = {} }: HistoryPanel
           <p className="history-panel__year">{year}</p>
           {date ? <p className="history-panel__date">{formatSnapshotDate(date)}</p> : null}
           {snapshots.length === 0 ? (
-            <p className="history-panel__summary">Нет статей для выбранных видов транспорта.</p>
+            <p className="history-panel__summary">{t('history.noArticles')}</p>
           ) : (
             snapshots.map((snapshot) => (
               <article key={snapshot.id} className="history-panel__snapshot">
-                <p className="history-panel__mode">{modeLabel(snapshot.mode)}</p>
+                <p className="history-panel__mode">{t(`mode.${snapshot.mode}`)}</p>
                 <h2 className="history-panel__title">{snapshot.title}</h2>
                 {routeLabels[snapshot.id]?.length ? (
                   <p className="history-panel__routes">

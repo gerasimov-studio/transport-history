@@ -23,6 +23,7 @@ function nearestDate(dates: string[], timestamp: number): string {
 }
 
 export function Timeline({ dates, date, onDateChange, embedded = false }: TimelineProps) {
+  const { t } = useI18n()
   if (dates.length === 0) {
     return null
   }
@@ -33,7 +34,7 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
   return (
     <div className={embedded ? 'timeline is-embedded' : 'timeline'}>
       <div className="timeline__meta">
-        <span className="timeline__label">Временная шкала</span>
+        <span className="timeline__label">{t('timeline')}</span>
         <span className="timeline__current" aria-live="polite">
           {date.slice(0, 4)}
         </span>
@@ -46,7 +47,7 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
           max={max}
           value={Date.parse(date)}
           onChange={(event) => onDateChange(nearestDate(dates, Number(event.target.value)))}
-          aria-label="Дата на шкале"
+          aria-label={t('timeline')}
           aria-valuetext={date}
         />
         <ol className="timeline__marks">
@@ -72,3 +73,4 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
     </div>
   )
 }
+import { useI18n } from '../i18n'

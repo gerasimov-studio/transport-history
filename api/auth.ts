@@ -11,6 +11,8 @@ export const SESSION_MAX_AGE = 14 * 24 * 60 * 60
 export type SessionUser = {
   id: number
   username: string
+  role: string
+  preferredLanguage: string | null
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -52,7 +54,7 @@ export async function userFromRequest(pool: pg.Pool, req: IncomingMessage): Prom
     return null
   }
   const result = await pool.query<SessionUser>(
-    `SELECT u.id, u.username
+    `SELECT u.id, u.username, u.role, u.preferred_language AS "preferredLanguage"
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token = $1 AND s.expires_at > now()`,
