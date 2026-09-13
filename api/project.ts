@@ -90,6 +90,7 @@ export function normalizeRoute(entity: RouteEntity): RouteEntity {
     name: entity.name,
     color: entity.color,
     segmentIds: entity.segmentIds,
+    geometry: entity.geometry,
     since,
     until: until && since && until < since ? since : until,
   }
@@ -146,6 +147,7 @@ export type RouteEntity = {
   name: string
   color: string
   segmentIds: string[]
+  geometry?: { type: 'LineString'; coordinates: [number, number][] }
   since?: string
   until?: string
 }
@@ -278,6 +280,18 @@ export function renderFeatures(
       continue
     }
     if (date && !infraAliveAt(route, date)) {
+      continue
+    }
+    if (route.geometry && route.geometry.coordinates.length >= 2) {
+      features.push({
+        type: 'Feature',
+        properties: {
+          kind: 'track', mode: route.mode, lineId: route.id, number: route.number,
+          name: route.name, color: route.color, trackForm: 'single_both', layer: 'route',
+          way: 'road', since: route.since, until: route.until,
+        },
+        geometry: route.geometry,
+      })
       continue
     }
     for (const segmentId of route.segmentIds) {

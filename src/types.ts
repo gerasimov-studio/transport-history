@@ -170,6 +170,7 @@ export type RouteEntity = {
   name: string
   color: string
   segmentIds: string[]
+  geometry?: { type: 'LineString'; coordinates: [number, number][] }
   since?: string
   until?: string
 }

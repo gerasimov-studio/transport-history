@@ -587,7 +587,7 @@ export function StudioPanel({
               </button>
             </div>
             <p className="studio-hint">
-              {t('studio.hintRoute')} {t('studio.hintClose')}
+              {draft.way === 'road' ? t('studio.hintRoadRoute') : t('studio.hintRoute')} {t('studio.hintClose')}
             </p>
             <ul className="studio-list studio-list--features">
               {routes.map((route) => {
@@ -631,8 +631,16 @@ export function StudioPanel({
                   />
                 </label>
                 <p className="studio-hint">
-                  {t('studio.segments')}: {selectedSegments.length || t('studio.noneYet')}
+                  {draft.way === 'road'
+                    ? `${t('studio.points')}: ${selectedRoute.geometry?.coordinates.length || t('studio.noneYet')}`
+                    : `${t('studio.segments')}: ${selectedSegments.length || t('studio.noneYet')}`}
                 </p>
+                {draft.way === 'road' && selectedRoute.geometry?.coordinates.length ? (
+                  <div className="studio-tools">
+                    <button type="button" className="studio-btn" onClick={onUndoVertex}>{t('studio.undoPoint')}</button>
+                    <button type="button" className="studio-btn" onClick={onReverse}>{t('studio.reverse')}</button>
+                  </div>
+                ) : null}
                 <ul className="studio-list studio-list--features">
                   {selectedSegments.map((segment) => (
                     <li key={segment.id}>

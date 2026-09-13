@@ -9,7 +9,7 @@ import { infraAliveAt, periodsOverlap, sameGauge, type CatalogCity, type MapView
 import { Basemap } from '../Basemap'
 import { RouteShields } from '../RouteShields'
 
-export type DrawTool = 'select' | 'track' | 'stop' | 'node'
+export type DrawTool = 'select' | 'track' | 'stop' | 'node' | 'route'
 
 export type DraftFeature = NetworkFeature & { key: string }
 
@@ -261,7 +261,7 @@ function ClickCatch({
       if (tool === 'select') {
         return
       }
-      const snapped = snapDrawPoint(map, [event.latlng.lng, event.latlng.lat], snapGraph, {
+      const snapped = tool === 'route' ? [event.latlng.lng, event.latlng.lat] as [number, number] : snapDrawPoint(map, [event.latlng.lng, event.latlng.lat], snapGraph, {
         lockTurns,
         from: previousPoint,
       })
@@ -349,7 +349,9 @@ function DraftShape({
                   },
                   )
                   const from = line[index - 1] ?? line[index + 1]
-                  const snapped = snapDrawPoint(map, [next.lng, next.lat], graph, { lockTurns, from })
+                  const snapped = feature.properties.layer === 'route'
+                    ? [next.lng, next.lat] as [number, number]
+                    : snapDrawPoint(map, [next.lng, next.lat], graph, { lockTurns, from })
                   onMoveVertex(index, snapped)
                 },
               }}

@@ -166,8 +166,11 @@ async function syncSpatialProjection(sourceScope: string) {
     for (const route of state.routes.values()) {
       await client.query(
         `INSERT INTO network_routes
-           (id, source_scope, mode, valid_from, valid_to, segment_ids, payload)
-         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+           (id, source_scope, mode, valid_from, valid_to, segment_ids, geom, payload)
+         VALUES ($1, $2, $3, $4, $5, $6,
+           CASE WHEN $7::jsonb IS NULL OR jsonb_array_length($7::jsonb->'coordinates') < 2
+             THEN NULL ELSE ST_SetSRID(ST_GeomFromGeoJSON($7), 4326) END,
+           $8::jsonb)`,
         [
           route.id,
           sourceScope,
@@ -175,6 +178,7 @@ async function syncSpatialProjection(sourceScope: string) {
           route.since ?? null,
           route.until ?? null,
           route.segmentIds,
+          route.geometry ? JSON.stringify(route.geometry) : null,
           JSON.stringify(route),
         ],
       )
@@ -312,7 +316,7 @@ function asBounds(raw: string): Bounds | null {
   return { west, south, east, north }
 }
 
-function entityInBounds(entity: InfraEntity, bounds: Bounds) {
+function entityInBounds(entity: { geometry?: { coordinates: unknown } }, bounds: Bounds) {
   const coordinates: [number, number][] = []
   const collect = (value: unknown) => {
     if (Array.isArray(value) && value.length === 2 && value.every((item) => typeof item === 'number')) {
@@ -321,7 +325,7 @@ function entityInBounds(entity: InfraEntity, bounds: Bounds) {
       for (const item of value) collect(item)
     }
   }
-  collect(entity.geometry.coordinates)
+  collect(entity.geometry?.coordinates)
   if (!coordinates.length) return false
   const lngs = coordinates.map((point) => point[0])
   const lats = coordinates.map((point) => point[1])
@@ -345,16 +349,14 @@ async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail
   )
   const infra = new Map(result.rows.map((row) => [row.payload.id, row.payload]))
   const visibleIds = [...infra.keys()]
-  const routeResult = visibleIds.length
-    ? await pool.query<{ payload: RouteEntity }>(
+  const routeResult = await pool.query<{ payload: RouteEntity }>(
         `SELECT payload
          FROM network_routes
-         WHERE segment_ids && $1::text[]
+         WHERE (segment_ids && $1::text[] OR ST_Intersects(geom, ST_MakeEnvelope($3, $4, $5, $6, 4326)))
            AND (valid_from IS NULL OR valid_from <= $2)
            AND (valid_to IS NULL OR valid_to >= $2)`,
-        [visibleIds, date],
+        [visibleIds, date, bounds.west, bounds.south, bounds.east, bounds.north],
       )
-    : { rows: [] as { payload: RouteEntity }[] }
   const routes = new Map(routeResult.rows.map((row) => [row.payload.id, row.payload]))
   if (workspaceId !== 'main') {
     const overlay = await pool.query<{ operations: StoredOperations }>(
@@ -371,7 +373,7 @@ async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail
       }
       for (const id of change.operations.removeRoutes) routes.delete(id)
       for (const route of change.operations.upsertRoutes) {
-        if (infraAliveAt(route, date) && route.segmentIds.some((id) => infra.has(id))) routes.set(route.id, route)
+        if (infraAliveAt(route, date) && (entityInBounds(route, bounds) || route.segmentIds.some((id) => infra.has(id)))) routes.set(route.id, route)
         else routes.delete(route.id)
       }
     }
@@ -558,6 +560,15 @@ function validatedRoutes(input: unknown, mode: TransportMode, fallbackSince: str
     const segmentIds = Array.isArray(entity.segmentIds)
       ? entity.segmentIds.filter((value): value is string => typeof value === 'string' && value.length > 0)
       : []
+    const road = mode === 'bus' || mode === 'trolleybus'
+    const geometry = entity.geometry
+    if (road && geometry != null) {
+      if (geometry.type !== 'LineString' || !Array.isArray(geometry.coordinates) ||
+        geometry.coordinates.some((point) => !Array.isArray(point) || point.length !== 2 ||
+          point.some((value) => typeof value !== 'number' || !Number.isFinite(value)))) {
+        throw new Error(`route ${index}: geometry`)
+      }
+    }
     const since = asDate(entity.since) ?? fallbackSince
     const until = asDate(entity.until)
     if (until && until < since) {
@@ -567,9 +578,10 @@ function validatedRoutes(input: unknown, mode: TransportMode, fallbackSince: str
       id: entity.id,
       mode,
       number,
-      name: entity.name?.trim() || `Маршрут №${number}`,
+      name: entity.name?.trim() || `Route №${number}`,
       color: entity.color?.trim() || '#c45c26',
       segmentIds,
+      geometry: road ? geometry : undefined,
       since,
       until,
     }
@@ -1294,11 +1306,16 @@ const server = createServer(async (req, res) => {
           return
         }
         const referencedSegments = [...new Set([...removeInfra, ...routes.flatMap((route) => route.segmentIds)])]
-        if (infra.length > 0 || referencedSegments.length > 0 || removeRoutes.length > 0) {
+        if (infra.length > 0 || routes.length > 0 || referencedSegments.length > 0 || removeRoutes.length > 0) {
           await pool.query(
             `WITH changed_geometries AS (
                SELECT ST_SetSRID(ST_GeomFromGeoJSON(value->'geometry'), 4326) AS geom
                FROM jsonb_array_elements($2::jsonb) AS value
+               UNION ALL
+               SELECT ST_SetSRID(ST_GeomFromGeoJSON(value->'geometry'), 4326) AS geom
+               FROM jsonb_array_elements($5::jsonb) AS value
+               WHERE value->'geometry' IS NOT NULL
+                 AND jsonb_array_length(value->'geometry'->'coordinates') >= 2
                UNION ALL
                SELECT geom FROM network_infra WHERE id = ANY($3::text[])
                UNION ALL
@@ -1311,7 +1328,7 @@ const server = createServer(async (req, res) => {
              UPDATE changesets
              SET bounds = (SELECT ST_Envelope(ST_Collect(geom)) FROM changed_geometries)
              WHERE id = $1`,
-            [id, JSON.stringify(infra), referencedSegments, removeRoutes],
+            [id, JSON.stringify(infra), referencedSegments, removeRoutes, JSON.stringify(routes)],
           )
         }
         send(res, 201, {

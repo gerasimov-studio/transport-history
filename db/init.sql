@@ -129,10 +129,14 @@ CREATE TABLE IF NOT EXISTS network_routes (
   valid_from date,
   valid_to date,
   segment_ids text[] NOT NULL,
+  geom geometry(LineString, 4326),
   payload jsonb NOT NULL
 );
 
+ALTER TABLE network_routes ADD COLUMN IF NOT EXISTS geom geometry(LineString, 4326);
+
 CREATE INDEX IF NOT EXISTS network_routes_segments_gin ON network_routes USING GIN (segment_ids);
+CREATE INDEX IF NOT EXISTS network_routes_geom_gix ON network_routes USING GIST (geom);
 CREATE INDEX IF NOT EXISTS network_routes_validity_idx ON network_routes (valid_from, valid_to);
 
 CREATE TABLE IF NOT EXISTS workspaces (

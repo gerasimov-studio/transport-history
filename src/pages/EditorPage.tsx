@@ -121,6 +121,17 @@ function infraToFeature(entity: InfraEntity): DraftFeature {
 }
 
 function routeToFeatures(route: RouteEntity, infra: InfraEntity[]): DraftFeature[] {
+  if (route.geometry && route.geometry.coordinates.length >= 2) {
+    return [{
+      key: route.id,
+      type: 'Feature',
+      properties: {
+        kind: 'track', mode: route.mode, lineId: route.id, number: route.number, name: route.name,
+        color: route.color, trackForm: 'single_both', layer: 'route', way: 'road', since: route.since, until: route.until,
+      },
+      geometry: route.geometry,
+    }]
+  }
   return route.segmentIds.flatMap((segmentId) => {
     const segment = infra.find((entity) => entity.id === segmentId)
     if (!segment || segment.kind !== 'track') {
@@ -342,9 +353,18 @@ export function EditorPage() {
   }
 
   function handleMapClick(lng: number, lat: number) {
-    if (!draft || draft.layer !== 'infra') {
+    if (!draft) {
       return
     }
+    if (draft.layer === 'route' && draft.way === 'road' && tool === 'route' && selectedRouteId) {
+      updateRoute(selectedRouteId, (route) => ({
+        ...route,
+        segmentIds: [],
+        geometry: { type: 'LineString', coordinates: [...(route.geometry?.coordinates ?? []), [lng, lat]] },
+      }))
+      return
+    }
+    if (draft.layer !== 'infra') return
     if (tool === 'stop') {
       const id = newInfraId(draft.way, 'stop')
       const entity: InfraEntity = {
@@ -626,8 +646,8 @@ export function EditorPage() {
         city={city}
         features={mapFeatures}
         selectedKey={draft.layer === 'infra' ? selectedInfraId : selectedRouteId}
-        tool={draft.layer === 'infra' ? tool : 'select'}
-        enableVertices={draft.layer === 'infra'}
+        tool={draft.layer === 'route' && draft.way === 'road' ? 'route' : draft.layer === 'infra' ? tool : 'select'}
+        enableVertices={draft.layer === 'infra' || (draft.layer === 'route' && draft.way === 'road')}
         muteInfra={draft.layer === 'route'}
         lockTurns={lockTurns}
         snapWay={draft.way}
@@ -646,15 +666,21 @@ export function EditorPage() {
             : undefined
         }
         previousPoint={
-          selectedInfra?.geometry.type === 'LineString'
+          draft.layer === 'route' && draft.way === 'road'
+            ? draft.routes.find((route) => route.id === selectedRouteId)?.geometry?.coordinates.at(-1)
+            : selectedInfra?.geometry.type === 'LineString'
             ? selectedInfra.geometry.coordinates.at(-1)
             : undefined
         }
         onSelect={(feature) => {
           if (draft.layer === 'route') {
-            const infraId = feature.properties.infraId
-            if (infraId && draft.infra.some((entity) => entity.id === infraId && entity.kind === 'track' && infraWay(entity) === draft.way)) {
-              toggleSegment(infraId)
+            if (draft.way === 'rail') {
+              const infraId = feature.properties.infraId
+              if (infraId && draft.infra.some((entity) => entity.id === infraId && entity.kind === 'track' && infraWay(entity) === draft.way)) {
+                toggleSegment(infraId)
+              }
+            } else if (feature.properties.layer === 'route') {
+              setSelectedRouteId(feature.properties.lineId)
             }
             return
           }
@@ -682,7 +708,16 @@ export function EditorPage() {
           setDrawUntil(entity?.until ?? '')
         }}
         onMapClick={handleMapClick}
-        onMoveVertex={(key, index, coord) =>
+        onMoveVertex={(key, index, coord) => {
+          if (draft.layer === 'route' && draft.way === 'road') {
+            updateRoute(key, (route) => {
+              if (!route.geometry) return route
+              const coordinates = route.geometry.coordinates.slice()
+              coordinates[index] = coord
+              return { ...route, geometry: { type: 'LineString', coordinates } }
+            })
+            return
+          }
           updateInfra(key, (entity) => {
             if (entity.geometry.type !== 'LineString') {
               return entity
@@ -691,7 +726,7 @@ export function EditorPage() {
             coordinates[index] = coord
             return { ...entity, geometry: { type: 'LineString', coordinates } }
           })
-        }
+        }}
         onMovePoint={(key, coord) =>
           updateInfra(key, (entity) =>
             entity.geometry.type === 'Point' ? { ...entity, geometry: { type: 'Point', coordinates: coord } } : entity,
@@ -825,6 +860,12 @@ export function EditorPage() {
           setSelectedInfraId(null)
         }}
         onUndoVertex={() => {
+          if (draft.layer === 'route' && draft.way === 'road' && selectedRouteId) {
+            updateRoute(selectedRouteId, (route) => route.geometry
+              ? { ...route, geometry: { type: 'LineString', coordinates: route.geometry.coordinates.slice(0, -1) } }
+              : route)
+            return
+          }
           if (!selectedInfra || selectedInfra.geometry.type !== 'LineString') {
             return
           }
@@ -847,6 +888,12 @@ export function EditorPage() {
           )
         }}
         onReverse={() => {
+          if (draft.layer === 'route' && draft.way === 'road' && selectedRouteId) {
+            updateRoute(selectedRouteId, (route) => route.geometry
+              ? { ...route, geometry: { type: 'LineString', coordinates: [...route.geometry.coordinates].reverse() } }
+              : route)
+            return
+          }
           if (!selectedInfra || selectedInfra.geometry.type !== 'LineString') {
             return
           }
@@ -858,6 +905,7 @@ export function EditorPage() {
         }}
         onSelectRoute={(id) => {
           setSelectedRouteId(id)
+          if (draft.way === 'road') setTool('route')
           const route = draft.routes.find((item) => item.id === id)
           if (route?.since) {
             setDrawSince(route.since)
@@ -896,11 +944,13 @@ export function EditorPage() {
             name: `${t('studio.route')} №${number}`,
             color: MODE_COLORS[draft.mode],
             segmentIds: [],
+            geometry: draft.way === 'road' ? { type: 'LineString', coordinates: [] } : undefined,
             since: drawSince,
             until: drawUntil || undefined,
           }
           setDraft((current) => (current ? { ...current, routes: [...current.routes, route] } : current))
           setSelectedRouteId(id)
+          if (draft.way === 'road') setTool('route')
         }}
         onDeleteRoute={() => {
           if (!selectedRouteId) {
