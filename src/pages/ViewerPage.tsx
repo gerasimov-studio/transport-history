@@ -9,6 +9,7 @@ import { currentSnapshots, formatSnapshotDate, nearestDate, snapshotDates, snaps
 import { useCatalog } from '../data/useCatalog'
 import { useViewportState } from '../data/useViewportState'
 import { diffNetwork, hasDiff } from '../map/diffNetwork'
+import { useVisitorLocation } from '../map/useVisitorLocation'
 import { useI18n } from '../i18n'
 import { infraAliveAt, infraWay, wayEnabled, type MapViewport, type TransportMode } from '../types'
 
@@ -23,6 +24,7 @@ const today = new Date().toISOString().slice(0, 10)
 
 export function ViewerPage() {
   const { t } = useI18n()
+  const mapStart = useVisitorLocation()
   const [searchParams] = useSearchParams()
   const workspaceId = searchParams.get('workspace') || 'main'
   const { catalog, error: catalogError } = useCatalog({ loadNetworks: false })
@@ -144,7 +146,7 @@ export function ViewerPage() {
 
   return (
     <div className="app">
-      <MapStage city={city} features={features} highlight={showChanges} onViewportChange={setViewport} />
+      <MapStage city={city} start={mapStart} features={features} highlight={showChanges} onViewportChange={setViewport} />
       <header className="brand">
         <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
       </header>

@@ -7,6 +7,7 @@ import { routeRibbons } from '../map/segmentLabels'
 import type { CatalogCity, MapViewport, NetworkFeature } from '../types'
 import { Basemap } from './Basemap'
 import { RouteShields } from './RouteShields'
+import type { MapStart } from '../map/useVisitorLocation'
 
 export type FeatureAccent = 'added' | 'removed' | 'changed'
 
@@ -19,18 +20,20 @@ type MapStageProps = {
   features: ViewerFeature[]
   highlight?: boolean
   onViewportChange?: (view: MapViewport) => void
+  start?: MapStart
 }
 
-export function MapStage({ city, features, highlight = false, onViewportChange }: MapStageProps) {
+export function MapStage({ city, features, highlight = false, onViewportChange, start }: MapStageProps) {
   const renderer = useMemo(() => L.canvas({ padding: 0.55, tolerance: 12 }), [])
+  const initial = start ?? { center: city.center, zoom: city.zoom }
   return (
     <div className="map-stage">
       <MapContainer
         key={city.id}
         className="map-stage__leaflet"
-        center={city.center}
-        zoom={city.zoom}
-        minZoom={city.minZoom}
+        center={initial.center}
+        zoom={initial.zoom}
+        minZoom={2}
         maxZoom={city.maxZoom}
         zoomControl={false}
         attributionControl={false}
@@ -38,10 +41,19 @@ export function MapStage({ city, features, highlight = false, onViewportChange }
         renderer={renderer}
       >
         <Basemap />
+        {start ? <StartView start={start} /> : null}
         <ViewerNetwork features={features} highlight={highlight} onViewportChange={onViewportChange} />
       </MapContainer>
     </div>
   )
+}
+
+function StartView({ start }: { start: MapStart }) {
+  const map = useMap()
+  useEffect(() => {
+    map.setView(start.center, start.zoom)
+  }, [map, start])
+  return null
 }
 
 function ViewerNetwork({
