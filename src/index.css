@@ -150,10 +150,11 @@ input {
   display: inline-block;
   margin-top: 7px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   text-decoration: none;
-  opacity: 0.72;
+  opacity: 0.82;
+  pointer-events: auto;
   transition: color 150ms ease, opacity 150ms ease;
 }
 
