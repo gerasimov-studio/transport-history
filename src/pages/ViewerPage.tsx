@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { HistoryPanel } from '../components/HistoryPanel'
 import { MapStage, type ViewerFeature } from '../components/MapStage'
@@ -28,15 +28,26 @@ export function ViewerPage() {
   const { t } = useI18n()
   const { user } = useSession()
   const mapStart = useVisitorLocation()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const workspaceId = searchParams.get('workspace') || 'main'
+  const initialLinkedStart = useRef(mapStartFromParams(searchParams))
   const { catalog, error: catalogError } = useCatalog({ loadNetworks: false })
-  const [date, setDate] = useState<string | null>(null)
+  const [date, setDate] = useState<string | null>(() => searchParams.get('date'))
   const [modes, setModes] = useState(initialModes)
   const [hiddenRoutes, setHiddenRoutes] = useState<Set<string>>(new Set())
   const [showChanges, setShowChanges] = useState(false)
   const [viewport, setViewport] = useState<MapViewport | null>(null)
   const [exportBasemap, setExportBasemap] = useState(true)
+  const handleViewportChange = useCallback((next: MapViewport) => {
+    setViewport(next)
+    setSearchParams((current) => {
+      const params = new URLSearchParams(current)
+      params.set('lat', next.center[0].toFixed(6))
+      params.set('lng', next.center[1].toFixed(6))
+      params.set('z', String(next.zoom))
+      return params
+    }, { replace: true })
+  }, [setSearchParams])
 
   const city = catalog?.cities[0]
   const citySnapshots = useMemo(
@@ -149,7 +160,7 @@ export function ViewerPage() {
 
   return (
     <div className="app">
-      <MapStage city={city} start={mapStart} features={features} highlight={showChanges} onViewportChange={setViewport} />
+      <MapStage city={city} start={initialLinkedStart.current ?? mapStart} features={features} highlight={showChanges} onViewportChange={handleViewportChange} />
       <header className="brand">
         <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
         <Link className="brand__account" to="/account">{user?.username ?? t('account.signInOrRegister')}</Link>
@@ -220,10 +231,26 @@ export function ViewerPage() {
         ) : null}
       </div>
       {selectedDate ? (
-        <Timeline dates={dates} date={selectedDate} onDateChange={(next) => setDate(next)} />
+        <Timeline dates={dates} date={selectedDate} onDateChange={(next) => {
+          setDate(next)
+          setSearchParams((current) => {
+            const params = new URLSearchParams(current)
+            params.set('date', next)
+            return params
+          }, { replace: true })
+        }} />
       ) : null}
     </div>
   )
+}
+
+function mapStartFromParams(params: URLSearchParams) {
+  const lat = Number(params.get('lat'))
+  const lng = Number(params.get('lng'))
+  const zoom = Number(params.get('z'))
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180 ||
+    !Number.isFinite(zoom) || zoom < 2 || zoom > 22) return null
+  return { center: [lat, lng] as [number, number], zoom }
 }
 
 function accentFor(

@@ -50,9 +50,11 @@ export function MapStage({ city, features, highlight = false, onViewportChange, 
 
 function StartView({ start }: { start: MapStart }) {
   const map = useMap()
+  const [lat, lng] = start.center
+  const { zoom } = start
   useEffect(() => {
-    map.setView(start.center, start.zoom)
-  }, [map, start])
+    map.setView([lat, lng], zoom)
+  }, [lat, lng, map, zoom])
   return null
 }
 
@@ -69,6 +71,7 @@ function ViewerNetwork({
   const view = useMapView()
   useEffect(() => {
     onViewportChange?.({
+      center: [view.bounds.getCenter().lat, view.bounds.getCenter().lng],
       zoom: view.zoom,
       bounds: {
         west: view.bounds.getWest(),

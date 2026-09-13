@@ -185,6 +185,7 @@ export type NetworkState = {
 }
 
 export type MapViewport = {
+  center: [number, number]
   zoom: number
   bounds: { west: number; south: number; east: number; north: number }
 }

@@ -1,4 +1,5 @@
 import pg from 'pg'
+import { readFileSync } from 'node:fs'
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
@@ -18,22 +19,17 @@ const earlyElectric: Point[] = [
   [18.4286, 43.8578], [18.4236, 43.8567], [18.4202, 43.8566], [18.4135, 43.8563],
   [18.4074, 43.8557], oldStation,
 ]
-const standardGauge: Point[] = [
-  [18.3091, 43.8308], [18.3116, 43.8336], [18.3170, 43.8373], [18.3216, 43.8406],
-  [18.3276, 43.8427], [18.3399, 43.8451], [18.3468, 43.8462], [18.3534, 43.8472],
-  [18.3597, 43.8481], [18.3661, 43.8491], [18.3719, 43.8501], [18.3782, 43.8514],
-  [18.3844, 43.8525], [18.3917, 43.8539], [18.3977, 43.8555], [18.4007, 43.8556],
-  [18.4074, 43.8557], [18.4123, 43.8577], [18.4197, 43.8589], [18.4254, 43.8597],
-  [18.4313, 43.8600], [18.4335, 43.8588], [18.4286, 43.8578], [18.4236, 43.8567],
-  [18.4202, 43.8566], [18.4135, 43.8563], [18.4074, 43.8557],
-]
+const standardGauge = (JSON.parse(readFileSync(new URL('../db/seed/sarajevo-tram-osm.json', import.meta.url), 'utf8')) as {
+  type: 'MultiLineString'
+  coordinates: Point[][]
+}).coordinates
 
 const events: Event[] = []
 const add = (type: string, date: string, payload: Record<string, unknown>) => events.push({ type, date, payload })
-const track = (id: string, name: string, gauge: number, since: string, until: string | undefined, coordinates: Point[]) => ({
+const track = (id: string, name: string, gauge: number, since: string, until: string | undefined, coordinates: Point[] | Point[][]) => ({
   id, kind: 'track', way: 'rail', gauge, grade: 'surface', since, until, name,
   color: gauge === 760 ? '#a66a3f' : '#8b9098', trackForm: 'single_both',
-  geometry: { type: 'LineString', coordinates },
+  geometry: { type: Array.isArray(coordinates[0]?.[0]) ? 'MultiLineString' : 'LineString', coordinates },
 })
 const route = (id: string, number: string, name: string, since: string, until: string | undefined, segmentIds: string[]) => ({
   id, mode: 'tram', number, name, color: '#d32027', segmentIds, since, until,

@@ -160,6 +160,7 @@ function EditorNetwork({
   const view = useMapView()
   useEffect(() => {
     onViewportChange?.({
+      center: [view.bounds.getCenter().lat, view.bounds.getCenter().lng],
       zoom: view.zoom,
       bounds: {
         west: view.bounds.getWest(),
