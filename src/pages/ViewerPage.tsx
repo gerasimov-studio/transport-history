@@ -8,10 +8,12 @@ import { Timeline } from '../components/Timeline'
 import { currentSnapshots, formatSnapshotDate, nearestDate, snapshotDates, snapshotsForCity } from '../data/snapshots'
 import { useCatalog } from '../data/useCatalog'
 import { useViewportState } from '../data/useViewportState'
+import { useSession } from '../data/useSession'
 import { diffNetwork, hasDiff } from '../map/diffNetwork'
 import { useVisitorLocation } from '../map/useVisitorLocation'
 import { useI18n } from '../i18n'
 import { infraAliveAt, infraWay, wayEnabled, type MapViewport, type TransportMode } from '../types'
+import { Link } from 'react-router-dom'
 
 const initialModes: Record<TransportMode, boolean> = {
   metro: true,
@@ -24,6 +26,7 @@ const today = new Date().toISOString().slice(0, 10)
 
 export function ViewerPage() {
   const { t } = useI18n()
+  const { user } = useSession()
   const mapStart = useVisitorLocation()
   const [searchParams] = useSearchParams()
   const workspaceId = searchParams.get('workspace') || 'main'
@@ -149,6 +152,7 @@ export function ViewerPage() {
       <MapStage city={city} start={mapStart} features={features} highlight={showChanges} onViewportChange={setViewport} />
       <header className="brand">
         <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
+        <Link className="brand__account" to="/account">{user?.username ?? t('account.signInOrRegister')}</Link>
       </header>
       <div className="side-dock">
         <ModesPanel

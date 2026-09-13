@@ -146,6 +146,23 @@ input {
   line-height: 1;
 }
 
+.brand__account {
+  display: inline-block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  opacity: 0.72;
+  transition: color 150ms ease, opacity 150ms ease;
+}
+
+.brand__account:hover,
+.brand__account:focus-visible {
+  color: var(--text-strong);
+  opacity: 1;
+}
+
 .side-dock {
   position: absolute;
   top: 22px;
