@@ -20,6 +20,7 @@ function keepDay(current: string, year: number, bound: 'start' | 'end'): string 
 }
 
 export function YearRangeSlider({ minYear, maxYear, start, end, onStart, onEnd }: YearRangeSliderProps) {
+  const { t } = useI18n()
   const openYear = maxYear + 1
   const startYear = Math.min(maxYear, Math.max(minYear, yearOf(start, minYear)))
   const endYear = end ? Math.min(maxYear, Math.max(startYear, yearOf(end, maxYear))) : openYear
@@ -31,7 +32,7 @@ export function YearRangeSlider({ minYear, maxYear, start, end, onStart, onEnd }
     <div className="year-range">
       <div className="year-range__meta">
         <span>{startYear}</span>
-        <span>{end ? endYear : 'н.в.'}</span>
+        <span>{end ? endYear : t('studio.present')}</span>
       </div>
       <div className="year-range__track">
         <div className="year-range__rail" />
@@ -42,7 +43,7 @@ export function YearRangeSlider({ minYear, maxYear, start, end, onStart, onEnd }
           min={minYear}
           max={end ? endYear : maxYear}
           value={startYear}
-          aria-label="Год начала"
+          aria-label={t('studio.startYear')}
           onChange={(event) => {
             const next = Math.min(Number(event.target.value), end ? endYear : maxYear)
             onStart(keepDay(start, next, 'start'))
@@ -54,7 +55,7 @@ export function YearRangeSlider({ minYear, maxYear, start, end, onStart, onEnd }
           min={minYear}
           max={openYear}
           value={endYear}
-          aria-label="Год окончания"
+          aria-label={t('studio.endYear')}
           onChange={(event) => {
             const raw = Number(event.target.value)
             if (raw >= openYear) {
@@ -68,8 +69,9 @@ export function YearRangeSlider({ minYear, maxYear, start, end, onStart, onEnd }
       </div>
       <div className="year-range__scale">
         <span>{minYear}</span>
-        <span>н.в.</span>
+        <span>{t('studio.present')}</span>
       </div>
     </div>
   )
 }
+import { useI18n } from '../i18n'

@@ -268,7 +268,7 @@ export function EditorPage() {
   }, [viewport, user, dirty, draftDate, draftWay, draftMode, draftLayer, loadDate])
 
   function confirmLeave() {
-    return !dirty || window.confirm('Есть несохранённые правки. Продолжить?')
+    return !dirty || window.confirm(t('studio.unsavedConfirm'))
   }
 
   function startNewDate() {
@@ -355,7 +355,7 @@ export function EditorPage() {
         ...railProfile(draft.way, drawGrade, drawLevel),
         since: drawSince,
         until: drawUntil || undefined,
-        name: 'Остановка',
+        name: t('studio.stop'),
         color: MODE_COLORS[draft.mode],
         trackForm,
         geometry: { type: 'Point', coordinates: [lng, lat] },
@@ -413,7 +413,7 @@ export function EditorPage() {
         ...railProfile(draft.way, drawGrade, drawLevel),
         since: drawSince,
         until: drawUntil || undefined,
-        name: isNode ? 'Узел' : draft.way === 'road' ? 'Улица' : drawGrade === 'tunnel' ? 'Тоннель' : 'Путь',
+        name: isNode ? t('studio.node') : draft.way === 'road' ? t('studio.street') : drawGrade === 'tunnel' ? t('studio.portal') : t('studio.track'),
         color: isNode ? MODE_COLORS[draft.mode] : draft.way === 'rail' ? gaugeColor(drawGauge) : WAY_COLORS.road,
         trackForm,
         nodeKind: isNode ? nodeKind : undefined,
@@ -436,7 +436,7 @@ export function EditorPage() {
       ...railProfile(draft.way, drawGrade, drawLevel, nodeKind === 'portal'),
       since: drawSince,
       until: drawUntil || undefined,
-      name: nodeKind === 'portal' ? 'Выход' : 'Узел',
+      name: nodeKind === 'portal' ? t('studio.portal') : t('studio.node'),
       color: MODE_COLORS[draft.mode],
       trackForm,
       nodeKind,
@@ -448,7 +448,7 @@ export function EditorPage() {
 
   function toggleSegment(infraId: string) {
     if (!draft || !selectedRouteId) {
-      setMessage('Сначала выбери или добавь маршрут')
+      setMessage(t('studio.chooseRoute'))
       return
     }
     const segment = draft.infra.find((entity) => entity.id === infraId)
@@ -458,11 +458,11 @@ export function EditorPage() {
     const alreadyOnRoute = draft.routes.some((route) => route.id === selectedRouteId && route.segmentIds.includes(infraId))
     const route = draft.routes.find((item) => item.id === selectedRouteId)
     if (!alreadyOnRoute && !infraAliveAt(segment, draft.date)) {
-      setMessage(`Этот путь не действует ${draft.date}`)
+      setMessage(`${t('studio.inactiveTrack')} ${draft.date}`)
       return
     }
     if (!alreadyOnRoute && route && !periodsOverlap(route, segment)) {
-      setMessage('Период пути не пересекается с периодом маршрута')
+      setMessage(t('studio.periodMismatch'))
       return
     }
     if (draft.way === 'rail') {
@@ -473,7 +473,7 @@ export function EditorPage() {
           .find((value): value is number => value != null) ?? drawGauge
       const segmentGauge = infraGauge(segment)
       if (segmentGauge != null && !sameGauge(segmentGauge, currentGauge)) {
-        setMessage(`Маршрут идёт по колее ${currentGauge} мм, этот путь — ${segmentGauge} мм`)
+        setMessage(`${t('studio.gaugeMismatch')} ${currentGauge} mm / ${segmentGauge} mm`)
         return
       }
     }
@@ -537,10 +537,10 @@ export function EditorPage() {
       })
       setChangeSetId(saved.id)
       setBaseline(JSON.stringify(draft))
-      setMessage(`Черновик сохранён · ${saved.operations} изменений`)
+      setMessage(`${t('studio.saved')} · ${saved.operations} ${t('studio.changesCount')}`)
       reload()
     } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : 'Не удалось сохранить')
+      setMessage(cause instanceof Error ? cause.message : t('studio.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -552,10 +552,10 @@ export function EditorPage() {
     setMessage(null)
     try {
       await api(`/api/changesets/${encodeURIComponent(changeSetId)}/submit`, { method: 'POST' })
-      setMessage('Изменения отправлены на модерацию')
+      setMessage(t('studio.submitted'))
       setChangeSetId(null)
     } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : 'Не удалось отправить изменения')
+      setMessage(cause instanceof Error ? cause.message : t('studio.submitFailed'))
     } finally {
       setSaving(false)
     }
@@ -571,7 +571,7 @@ export function EditorPage() {
         <form className="gate__card" onSubmit={login}>
           <p className="gate__kicker">{t('login.studio')}</p>
           <h1 className="gate__title">{t('login.title')}</h1>
-          <p className="gate__lead">
+          <p className="gate__lead" hidden>
             Сначала рельсы или улицы, затем маршруты по ним. Публичной ссылки нет.
           </p>
           <label className="studio-field">
@@ -893,7 +893,7 @@ export function EditorPage() {
             id,
             mode: draft.mode,
             number,
-            name: `Маршрут №${number}`,
+            name: `${t('studio.route')} №${number}`,
             color: MODE_COLORS[draft.mode],
             segmentIds: [],
             since: drawSince,

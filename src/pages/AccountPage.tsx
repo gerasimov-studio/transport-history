@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { useSession } from '../data/useSession'
 import { api } from '../lib/api'
 import { LOCALES, useI18n, type Locale } from '../i18n'
+import { domain } from '../domainI18n'
+import type { TransportMode } from '../types'
 
 type Workspace = {
   id: string
@@ -123,7 +125,7 @@ export function AccountPage() {
         <div className="workspace-grid">
           {workspaces.map((space) => (
             <article key={space.id} className="workspace-item">
-              <span>{space.kind === 'canonical' ? t('account.main') : `${t('account.scenario')} · ${space.visibility}`}</span>
+              <span>{space.kind === 'canonical' ? t('account.main') : `${t('account.scenario')} · ${t(`visibility.${space.visibility}`)}`}</span>
               <h3>{space.title}</h3>
               <Link to={`/edit?workspace=${encodeURIComponent(space.id)}`}>{t('account.open')}</Link>
               {space.kind === 'scenario' ? <> · <Link to={`/?workspace=${encodeURIComponent(space.id)}`}>{t('account.view')}</Link></> : null}
@@ -140,7 +142,7 @@ export function AccountPage() {
         <div className="workspace-grid">
           {changesets.filter((change) => change.author === user.username).map((change) => (
             <article key={change.id} className="workspace-item">
-              <span>{change.status} · {change.mode} · {change.date}</span>
+              <span>{t(`status.${change.status}` as 'status.draft')} · {domain.mode(locale, change.mode as TransportMode)} · {change.date}</span>
               <h3>{change.title || t('account.noTitle')}</h3>
               <small>{new Date(change.updatedAt).toLocaleString(locale)}</small>
             </article>
@@ -153,7 +155,7 @@ export function AccountPage() {
           <div className="workspace-grid">
             {changesets.filter((change) => change.status === 'submitted' && change.canModerate).map((change) => (
               <article key={change.id} className="workspace-item">
-                <span>{change.author} · {change.mode} · {change.date}</span>
+                <span>{change.author} · {domain.mode(locale, change.mode as TransportMode)} · {change.date}</span>
                 <h3>{change.title || t('account.networkChanges')}</h3>
                 <p>{change.summary || t('account.noDescription')}</p>
                 <button className="studio-btn studio-btn--primary" onClick={() => void publish(change.id)}>{t('account.publish')}</button>

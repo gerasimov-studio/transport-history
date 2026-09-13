@@ -23,7 +23,7 @@ export function useViewportState(view: MapViewport | null, date?: string | null,
           setError(null)
         }
       } catch (cause) {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : 'Не удалось загрузить карту')
+        if (!cancelled) setError(cause instanceof Error ? cause.message : 'Could not load map')
       } finally {
         if (!cancelled) setLoading(false)
       }

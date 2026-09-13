@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { MODE_COLORS, validityLabel, type RouteEntity, type TransportMode } from '../types'
+import { MODE_COLORS, type RouteEntity, type TransportMode } from '../types'
 import { useI18n } from '../i18n'
+import { domain } from '../domainI18n'
 
 type RoutesPanelProps = {
   routes: RouteEntity[]
@@ -11,7 +12,7 @@ type RoutesPanelProps = {
 
 export function RoutesPanel({ routes, hidden, onToggle, onSetMode }: RoutesPanelProps) {
   const [open, setOpen] = useState(true)
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const grouped = groupByMode(routes)
   const visibleCount = routes.filter((route) => !hidden.has(route.id)).length
 
@@ -64,8 +65,8 @@ export function RoutesPanel({ routes, hidden, onToggle, onSetMode }: RoutesPanel
                             <span className="route-item__number">№{route.number}</span>
                             <span className="route-item__name">
                               {route.name}
-                              {validityLabel(route.since, route.until)
-                                ? ` · ${validityLabel(route.since, route.until)}`
+                              {domain.validity(locale, route.since, route.until)
+                                ? ` · ${domain.validity(locale, route.since, route.until)}`
                                 : ''}
                             </span>
                           </label>

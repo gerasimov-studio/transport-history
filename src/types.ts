@@ -13,15 +13,15 @@ export type NodeKind = 'junction' | 'terminus' | 'loop' | 'wye' | 'crossover' | 
 export type TrackGrade = 'surface' | 'tunnel'
 
 export const TRANSPORT_MODES: { id: TransportMode; label: string }[] = [
-  { id: 'metro', label: 'Метро' },
-  { id: 'tram', label: 'Трамвай' },
-  { id: 'trolleybus', label: 'Троллейбус' },
-  { id: 'bus', label: 'Автобус' },
+  { id: 'metro', label: 'Metro' },
+  { id: 'tram', label: 'Tram' },
+  { id: 'trolleybus', label: 'Trolleybus' },
+  { id: 'bus', label: 'Bus' },
 ]
 
 export const TRANSPORT_WAYS: { id: TransportWay; label: string }[] = [
-  { id: 'rail', label: 'Рельсовый' },
-  { id: 'road', label: 'Дорожный' },
+  { id: 'rail', label: 'Rail' },
+  { id: 'road', label: 'Road' },
 ]
 
 export const WAY_MODES: Record<TransportWay, TransportMode[]> = {
@@ -42,35 +42,35 @@ export const WAY_COLORS: Record<TransportWay, string> = {
 }
 
 export const GAUGE_PRESETS: { mm: number; label: string }[] = [
-  { mm: 1520, label: '1520 мм · русская' },
-  { mm: 1435, label: '1435 мм · европейская' },
-  { mm: 1000, label: '1000 мм · метровая' },
+  { mm: 1520, label: '1520 mm · broad gauge' },
+  { mm: 1435, label: '1435 mm · standard gauge' },
+  { mm: 1000, label: '1000 mm · metre gauge' },
 ]
 
 export const TRACK_FORMS: { id: TrackForm; label: string }[] = [
-  { id: 'double', label: 'Двухпутная' },
-  { id: 'single_oneway', label: 'Однопутная, в одну сторону' },
-  { id: 'single_both', label: 'Однопутная, в обе стороны' },
+  { id: 'double', label: 'Double track' },
+  { id: 'single_oneway', label: 'Single track, one way' },
+  { id: 'single_both', label: 'Single track, both ways' },
 ]
 
 export const ROAD_TRACK_FORMS: { id: TrackForm; label: string }[] = [
-  { id: 'double', label: 'Двусторонняя' },
-  { id: 'single_oneway', label: 'Односторонняя' },
-  { id: 'single_both', label: 'В обе стороны' },
+  { id: 'double', label: 'Two-way' },
+  { id: 'single_oneway', label: 'One-way' },
+  { id: 'single_both', label: 'Both directions' },
 ]
 
 export const NODE_KINDS: { id: NodeKind; label: string; geometry: 'Point' | 'LineString' }[] = [
-  { id: 'junction', label: 'Узел / разъезд', geometry: 'Point' },
-  { id: 'terminus', label: 'Конечная', geometry: 'Point' },
-  { id: 'portal', label: 'Выход на поверхность', geometry: 'Point' },
-  { id: 'loop', label: 'Оборотное кольцо', geometry: 'LineString' },
-  { id: 'wye', label: 'Треугольник', geometry: 'LineString' },
-  { id: 'crossover', label: 'Съезд', geometry: 'LineString' },
+  { id: 'junction', label: 'Junction / passing loop', geometry: 'Point' },
+  { id: 'terminus', label: 'Terminus', geometry: 'Point' },
+  { id: 'portal', label: 'Tunnel portal', geometry: 'Point' },
+  { id: 'loop', label: 'Turning loop', geometry: 'LineString' },
+  { id: 'wye', label: 'Wye', geometry: 'LineString' },
+  { id: 'crossover', label: 'Crossover', geometry: 'LineString' },
 ]
 
 export const TRACK_GRADES: { id: TrackGrade; label: string }[] = [
-  { id: 'surface', label: 'На земле' },
-  { id: 'tunnel', label: 'Тоннель' },
+  { id: 'surface', label: 'Surface' },
+  { id: 'tunnel', label: 'Tunnel' },
 ]
 
 export const TUNNEL_LEVELS = [-1, -2, -3, -4]
@@ -307,12 +307,12 @@ export function gradeLabel(grade: TrackGrade): string {
 }
 
 export function levelLabel(level: number): string {
-  return level === 0 ? 'земля' : `ярус ${level}`
+  return level === 0 ? 'ground' : `level ${level}`
 }
 
 export function gaugeLabel(mm: number): string {
   const canonical = canonicalGauge(mm)
-  return GAUGE_PRESETS.find((item) => item.mm === canonical)?.label ?? `${canonical} мм`
+  return GAUGE_PRESETS.find((item) => item.mm === canonical)?.label ?? `${canonical} mm`
 }
 
 export function gaugeColor(mm: number): string {
@@ -399,7 +399,7 @@ export function validityLabel(since?: string, until?: string): string {
   }
   const from = since.slice(0, 4)
   if (!until) {
-    return `с ${from} — н.в.`
+    return `from ${from} — present`
   }
   const to = until.slice(0, 4)
   return from === to ? from : `${from}–${to}`

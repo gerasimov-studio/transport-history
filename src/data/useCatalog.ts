@@ -44,7 +44,7 @@ export function useCatalog(options?: { loadNetworks?: boolean }) {
         }
       } catch (cause) {
         if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : 'Не удалось загрузить каталог')
+          setError(cause instanceof Error ? cause.message : 'Could not load catalog')
         }
       }
     }

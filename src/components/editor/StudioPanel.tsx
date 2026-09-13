@@ -4,21 +4,14 @@ import {
   TRANSPORT_WAYS,
   TUNNEL_LEVELS,
   canonicalGauge,
-  gradeLabel,
   infraAliveAt,
   infraGauge,
   infraGrade,
   infraLevel,
   infraWay,
-  levelLabel,
-  modeLabel,
   modesForWay,
-  nodeKindLabel,
   nodeKindsForWay,
-  trackFormLabel,
   trackFormsForWay,
-  validityLabel,
-  wayLabel,
   type CatalogLine,
   type EditorLayer,
   type InfraEntity,
@@ -32,7 +25,8 @@ import {
 import { Timeline } from '../Timeline'
 import { YearRangeSlider } from '../YearRangeSlider'
 import type { DrawTool } from './EditorMap'
-import { useI18n } from '../../i18n'
+import { useI18n, type Locale } from '../../i18n'
+import { domain } from '../../domainI18n'
 
 export type DraftNetwork = {
   city: string
@@ -165,7 +159,7 @@ export function StudioPanel({
   onSubmit,
   onLogout,
 }: StudioPanelProps) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const infra = draft.infra.filter((entity) => infraWay(entity) === draft.way)
   const routes = draft.routes.filter((entity) => entity.mode === draft.mode)
   const selectedInfra = infra.find((entity) => entity.id === selectedInfraId)
@@ -237,7 +231,7 @@ export function StudioPanel({
         <div className="studio-section__title-row">
           <h2>{t('studio.dates')}</h2>
           <button type="button" className="studio-btn" onClick={onNewDate}>
-            Новая
+            {t('studio.new')}
           </button>
         </div>
         <Timeline dates={dates} date={draft.date} onDateChange={onSelectDate} embedded />
@@ -246,7 +240,7 @@ export function StudioPanel({
       <section className="studio-section">
         <h2>{t('studio.article')}</h2>
         <label className="studio-field">
-          Дата
+          {t('studio.date')}
           <input
             type="date"
             value={draft.date}
@@ -254,24 +248,24 @@ export function StudioPanel({
           />
         </label>
         <label className="studio-field">
-          Вид транспорта
+          {t('studio.mode')}
           <select
             value={draft.mode}
             onChange={(event) => onChange({ mode: event.target.value as TransportMode })}
           >
             {familyModes.map((mode) => (
               <option key={mode} value={mode}>
-                {modeLabel(mode)}
+                {domain.mode(locale, mode)}
               </option>
             ))}
           </select>
         </label>
         <label className="studio-field">
-          Заголовок
+          {t('studio.heading')}
           <input value={draft.title} onChange={(event) => onChange({ title: event.target.value })} />
         </label>
         <label className="studio-field">
-          Текст
+          {t('studio.text')}
           <textarea
             rows={6}
             value={draft.summary}
@@ -290,7 +284,7 @@ export function StudioPanel({
               className={draft.way === way.id ? 'studio-btn is-on' : 'studio-btn'}
               onClick={() => onChange({ way: way.id })}
             >
-              {way.label}
+              {domain.way(locale, way.id)}
             </button>
           ))}
         </div>
@@ -312,11 +306,11 @@ export function StudioPanel({
         </div>
         <div className="studio-fields-row">
           <label className="studio-field">
-            Действует с
+            {t('studio.activeFrom')}
             <input type="date" value={currentSince} onChange={(event) => onDrawSince(event.target.value)} />
           </label>
           <label className="studio-field">
-            {currentUntil ? 'по' : 'по · до сих пор'}
+            {currentUntil ? t('studio.activeUntil') : `${t('studio.activeUntil')} · ${t('studio.present')}`}
             <span className="studio-until">
               <input
                 type="date"
@@ -326,7 +320,7 @@ export function StudioPanel({
               />
               {currentUntil ? (
                 <button type="button" className="studio-btn" onClick={() => onDrawUntil('')}>
-                  н.в.
+                  {t('studio.present')}
                 </button>
               ) : null}
             </span>
@@ -342,8 +336,8 @@ export function StudioPanel({
         />
         <p className="studio-hint">
           {currentUntil
-            ? 'Дата «по» закрывает период. Кнопка «н.в.» снова открывает его.'
-            : 'Открытая дата — действует до сих пор.'}
+            ? t('studio.periodClosedHint')
+            : t('studio.periodOpenHint')}
         </p>
 
         {draft.layer === 'infra' ? (
@@ -354,33 +348,33 @@ export function StudioPanel({
                 className={tool === 'select' ? 'studio-btn is-on' : 'studio-btn'}
                 onClick={() => onTool('select')}
               >
-                Выбор
+                {t('studio.select')}
               </button>
               <button
                 type="button"
                 className={tool === 'track' ? 'studio-btn is-on' : 'studio-btn'}
                 onClick={() => onTool('track')}
               >
-                {draft.way === 'road' ? 'Улица' : 'Путь'}
+                {draft.way === 'road' ? t('studio.street') : t('studio.track')}
               </button>
               <button
                 type="button"
                 className={tool === 'stop' ? 'studio-btn is-on' : 'studio-btn'}
                 onClick={() => onTool('stop')}
               >
-                Остановка
+                {t('studio.stop')}
               </button>
               <button
                 type="button"
                 className={tool === 'node' ? 'studio-btn is-on' : 'studio-btn'}
                 onClick={() => onTool('node')}
               >
-                Узел
+                {t('studio.node')}
               </button>
             </div>
             {tool === 'track' || selectedInfra?.kind === 'track' ? (
               <label className="studio-field">
-                {draft.way === 'road' ? 'Тип улицы' : 'Тип пути'}
+                {draft.way === 'road' ? t('studio.streetType') : t('studio.trackType')}
                 <select
                   value={selectedInfra?.kind === 'track' ? selectedInfra.trackForm : trackForm}
                   onChange={(event) => {
@@ -393,7 +387,7 @@ export function StudioPanel({
                 >
                   {trackForms.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.label}
+                      {domain.trackForm(locale, item.id, draft.way)}
                     </option>
                   ))}
                 </select>
@@ -401,7 +395,7 @@ export function StudioPanel({
             ) : null}
             {tool === 'node' || selectedInfra?.kind === 'node' ? (
               <label className="studio-field">
-                Элемент узла
+                {t('studio.nodeElement')}
                 <select
                   value={selectedInfra?.nodeKind ?? nodeKind}
                   onChange={(event) => {
@@ -414,7 +408,7 @@ export function StudioPanel({
                 >
                   {nodeKinds.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.label}
+                      {domain.node(locale, item.id)}
                     </option>
                   ))}
                 </select>
@@ -430,24 +424,24 @@ export function StudioPanel({
                       className={currentGrade === item.id ? 'studio-btn is-on' : 'studio-btn'}
                       onClick={() => applyGrade(item.id)}
                     >
-                      {item.label}
+                      {domain.grade(locale, item.id)}
                     </button>
                   ))}
                 </div>
                 {currentGrade === 'tunnel' ? (
                   <label className="studio-field">
-                    Ярус
+                    {t('studio.level')}
                     <select value={String(currentLevel)} onChange={(event) => applyLevel(Number(event.target.value))}>
                       {TUNNEL_LEVELS.map((level) => (
                         <option key={level} value={level}>
-                          {levelLabel(level)}
+                          {domain.level(locale, level)}
                         </option>
                       ))}
                     </select>
                   </label>
                 ) : null}
                 <label className="studio-field">
-                  Колея
+                  {t('studio.gauge')}
                   <select
                     value={
                       GAUGE_PRESETS.some((item) => item.mm === currentGauge) ? String(currentGauge) : 'custom'
@@ -461,14 +455,14 @@ export function StudioPanel({
                   >
                     {GAUGE_PRESETS.map((item) => (
                       <option key={item.mm} value={item.mm}>
-                        {item.label}
+                        {domain.gauge(locale, item.mm)}
                       </option>
                     ))}
-                    <option value="custom">Своя ширина</option>
+                    <option value="custom">{t('studio.customGauge')}</option>
                   </select>
                 </label>
                 <label className="studio-field">
-                  Ширина, мм
+                  {t('studio.widthMm')}
                   <input
                     type="number"
                     min={600}
@@ -491,27 +485,21 @@ export function StudioPanel({
                 checked={lockTurns}
                 onChange={(event) => onLockTurns(event.target.checked)}
               />
-              Закреплять повороты
+              {t('studio.lockTurns')}
             </label>
             <p className="studio-hint">
               {tool === 'track'
                 ? draft.way === 'road'
-                  ? 'Сначала улицы, без номеров маршрутов. По ним потом лягут автобус и троллейбус.'
+                  ? t('studio.hintRoad')
                   : currentGrade === 'tunnel'
-                    ? 'Тоннели одного яруса стыкуются по концам. Разные ярусы пересекаются на карте, но не соединяются.'
-                    : 'Наземные пути липнут к стыкам той же колеи. Тоннель — отдельно, выход на поверхность — точка-устье.'
+                    ? t('studio.hintTunnel')
+                    : t('studio.hintRail')
                 : tool === 'stop'
-                  ? 'Кликни карту, чтобы поставить остановку.'
+                  ? t('studio.hintStop')
                   : tool === 'node'
-                    ? draft.way === 'road'
-                      ? 'Перекрёсток и конечная — точка; разворотное кольцо — линия.'
-                      : nodeKind === 'portal'
-                        ? 'Устье тоннеля: точка, к ней липнут и земля, и любой ярус тоннеля.'
-                        : 'Кольцо, треугольник и съезд рисуются линией; узел, конечная и выход — точкой.'
-                    : lockTurns
-                      ? 'Повороты закреплены: клик рядом со стыком прилипает, свободный угол округляется.'
-                      : 'Выбери объект на карте или в списке.'}{' '}
-              Чтобы закрыть участок, укажи дату «по». Удаление стирает его из схемы.
+                    ? t('studio.hintNode')
+                    : t('studio.hintSelect')}{' '}
+              {t('studio.hintClose')}
             </p>
             <ul className="studio-list studio-list--features">
               {infra.map((entity) => (
@@ -527,7 +515,7 @@ export function StudioPanel({
                       .join(' ')}
                     onClick={() => onSelectInfra(entity.id)}
                   >
-                    <span>{infraKindLabel(entity)}</span>
+                    <span>{infraKindLabel(entity, locale, { stop: t('studio.stop'), street: t('studio.street'), track: t('studio.track'), portal: t('studio.portal') })}</span>
                     <strong>{entity.name}</strong>
                   </button>
                 </li>
@@ -536,14 +524,14 @@ export function StudioPanel({
             {selectedInfra ? (
               <div className="studio-feature">
                 <label className="studio-field">
-                  Имя
+                  {t('studio.name')}
                   <input
                     value={selectedInfra.name}
                     onChange={(event) => onChangeInfra(selectedInfra.id, { name: event.target.value })}
                   />
                 </label>
                 <label className="studio-field">
-                  Цвет
+                  {t('studio.color')}
                   <input
                     type="color"
                     value={selectedInfra.color}
@@ -551,22 +539,22 @@ export function StudioPanel({
                   />
                 </label>
                 {selectedInfra.kind === 'track' ? (
-                  <p className="studio-hint">{trackFormLabel(selectedInfra.trackForm, draft.way)}</p>
+                  <p className="studio-hint">{domain.trackForm(locale, selectedInfra.trackForm, draft.way)}</p>
                 ) : null}
                 <div className="studio-tools">
                   {selectedInfra.geometry.type === 'LineString' ? (
                     <button type="button" className="studio-btn" onClick={onUndoVertex}>
-                      Убрать точку
+                      {t('studio.undoPoint')}
                     </button>
                   ) : null}
                   {selectedInfra.trackForm === 'single_oneway' &&
                   selectedInfra.geometry.type === 'LineString' ? (
                     <button type="button" className="studio-btn" onClick={onReverse}>
-                      Развернуть
+                      {t('studio.reverse')}
                     </button>
                   ) : null}
                   <button type="button" className="studio-btn studio-btn--danger" onClick={onDeleteInfra}>
-                    Удалить объект
+                    {t('studio.deleteObject')}
                   </button>
                 </div>
               </div>
@@ -575,7 +563,7 @@ export function StudioPanel({
         ) : (
           <>
             <label className="studio-field">
-              Номер
+              {t('studio.number')}
               <input
                 list="line-numbers"
                 value={selectedRoute ? selectedRoute.number : drawNumber}
@@ -595,16 +583,15 @@ export function StudioPanel({
             </label>
             <div className="studio-tools">
               <button type="button" className="studio-btn studio-btn--primary" onClick={onAddRoute}>
-                Добавить маршрут
+                {t('studio.addRoute')}
               </button>
             </div>
             <p className="studio-hint">
-              Выбери маршрут и кликай участки {draft.way === 'road' ? 'улиц' : `рельсов ${canonicalGauge(drawGauge)} мм`} — они собираются в путь.
-              Геометрию тут не рисуем. Чтобы закрыть маршрут, укажи дату «по». Удаление стирает его из схемы.
+              {t('studio.hintRoute')} {t('studio.hintClose')}
             </p>
             <ul className="studio-list studio-list--features">
               {routes.map((route) => {
-                const period = validityLabel(route.since, route.until)
+                const period = domain.validity(locale, route.since, route.until)
                 const muted = !infraAliveAt(route, draft.date)
                 return (
                   <li key={route.id}>
@@ -629,14 +616,14 @@ export function StudioPanel({
             {selectedRoute ? (
               <div className="studio-feature">
                 <label className="studio-field">
-                  Имя
+                  {t('studio.name')}
                   <input
                     value={selectedRoute.name}
                     onChange={(event) => onChangeRoute(selectedRoute.id, { name: event.target.value })}
                   />
                 </label>
                 <label className="studio-field">
-                  Цвет
+                  {t('studio.color')}
                   <input
                     type="color"
                     value={selectedRoute.color}
@@ -644,16 +631,16 @@ export function StudioPanel({
                   />
                 </label>
                 <p className="studio-hint">
-                  Участки: {selectedSegments.length || 'пока нет'}
+                  {t('studio.segments')}: {selectedSegments.length || t('studio.noneYet')}
                 </p>
                 <ul className="studio-list studio-list--features">
                   {selectedSegments.map((segment) => (
                     <li key={segment.id}>
                       <div className="studio-list__item studio-list__item--static">
                         <span>
-                          {trackFormLabel(segment.trackForm, draft.way)}
-                          {validityLabel(segment.since, segment.until)
-                            ? ` · ${validityLabel(segment.since, segment.until)}`
+                          {domain.trackForm(locale, segment.trackForm, draft.way)}
+                          {domain.validity(locale, segment.since, segment.until)
+                            ? ` · ${domain.validity(locale, segment.since, segment.until)}`
                             : ''}
                         </span>
                         <strong>{segment.name}</strong>
@@ -669,7 +656,7 @@ export function StudioPanel({
                             className="studio-btn studio-btn--danger"
                             onClick={() => onRemoveSegment(segment.id)}
                           >
-                            Убрать
+                            {t('studio.remove')}
                           </button>
                         </div>
                       </div>
@@ -677,7 +664,7 @@ export function StudioPanel({
                   ))}
                 </ul>
                 <button type="button" className="studio-btn studio-btn--danger" onClick={onDeleteRoute}>
-                  Удалить маршрут
+                  {t('studio.deleteRoute')}
                 </button>
               </div>
             ) : null}
@@ -696,33 +683,32 @@ export function StudioPanel({
           </button>
         </div>
         <p className="studio-hint">
-          Инфраструктура пишется на весь {wayLabel(draft.way).toLowerCase()} транспорт, маршруты — только для{' '}
-          {modeLabel(draft.mode).toLowerCase()}.
+          {t('studio.scopeHint')}
         </p>
       </footer>
     </aside>
   )
 }
 
-function infraKindLabel(entity: InfraEntity): string {
+function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: string; street: string; track: string; portal: string }): string {
   const gauge = infraGauge(entity)
-  const period = validityLabel(entity.since, entity.until)
+  const period = domain.validity(locale, entity.since, entity.until)
   const grade = infraWay(entity) === 'rail' ? infraGrade(entity) : undefined
   const gradeText =
     entity.nodeKind === 'portal'
-      ? 'устье'
+      ? words.portal
       : grade === 'tunnel'
-        ? `${gradeLabel('tunnel')} · ${levelLabel(infraLevel(entity))}`
+        ? `${domain.grade(locale, 'tunnel')} · ${domain.level(locale, infraLevel(entity))}`
         : grade === 'surface' && infraWay(entity) === 'rail'
-          ? gradeLabel('surface')
+          ? domain.grade(locale, 'surface')
           : ''
   const extra = [gauge ? String(gauge) : '', gradeText, period].filter(Boolean).join(' · ')
   const extraText = extra ? ` · ${extra}` : ''
   if (entity.kind === 'stop') {
-    return `остановка${extraText}`
+    return `${words.stop}${extraText}`
   }
   if (entity.kind === 'node' && entity.nodeKind) {
-    return `${nodeKindLabel(entity.nodeKind)}${extraText}`
+    return `${domain.node(locale, entity.nodeKind)}${extraText}`
   }
-  return `${infraWay(entity) === 'road' ? 'улица' : 'путь'}${extraText}`
+  return `${infraWay(entity) === 'road' ? words.street : words.track}${extraText}`
 }

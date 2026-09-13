@@ -2,16 +2,9 @@ import L from 'leaflet'
 import { CircleMarker, LayerGroup, Marker, Polyline, Popup } from 'react-leaflet'
 import { alongPolyline } from './geometry'
 import { strokeScale } from './lod'
-import {
-  gaugeLabel,
-  gradeLabel,
-  levelLabel,
-  nodeKindLabel,
-  trackFormLabel,
-  validityLabel,
-  type NetworkFeature,
-  type NodeKind,
-} from '../types'
+import { type NetworkFeature, type NodeKind } from '../types'
+import { useI18n, type Locale } from '../i18n'
+import { domain } from '../domainI18n'
 
 type TrackShapeProps = {
   feature: NetworkFeature
@@ -38,6 +31,7 @@ export function TrackShape({
   zoom = 13,
   onSelect,
 }: TrackShapeProps) {
+  const { locale } = useI18n()
   const events = onSelect
     ? {
         click: (event: { originalEvent: Event }) => {
@@ -64,21 +58,21 @@ export function TrackShape({
       >
         {showPopup ? (
           <Popup>
-            <strong>{pointTitle(feature)}</strong>
+            <strong>{pointTitle(feature, locale)}</strong>
             {feature.properties.layer === 'route' && feature.properties.number ? (
               <div>№{feature.properties.number}</div>
             ) : null}
             {feature.properties.way === 'rail' && feature.properties.gauge ? (
-              <div>{gaugeLabel(feature.properties.gauge)}</div>
+              <div>{domain.gauge(locale, feature.properties.gauge)}</div>
             ) : null}
             {feature.properties.way === 'rail' && feature.properties.grade === 'tunnel' ? (
               <div>
-                {gradeLabel('tunnel')}
-                {feature.properties.level != null ? ` · ${levelLabel(feature.properties.level)}` : ''}
+                {domain.grade(locale, 'tunnel')}
+                {feature.properties.level != null ? ` · ${domain.level(locale, feature.properties.level)}` : ''}
               </div>
             ) : null}
             {feature.properties.since ? (
-              <div>{validityLabel(feature.properties.since, feature.properties.until)}</div>
+              <div>{domain.validity(locale, feature.properties.since, feature.properties.until)}</div>
             ) : null}
           </Popup>
         ) : null}
@@ -108,6 +102,7 @@ export function TrackShape({
             showPopup={showPopup}
             zoom={zoom}
             events={events}
+            locale={locale}
           />
       ))}
     </LayerGroup>
@@ -124,6 +119,7 @@ function TrackLine({
   showPopup,
   zoom,
   events,
+  locale,
 }: {
   feature: NetworkFeature
   coordinates: [number, number][]
@@ -134,6 +130,7 @@ function TrackLine({
   showPopup: boolean
   zoom: number
   events?: { click: (event: { originalEvent: Event }) => void }
+  locale: Locale
 }) {
   if (coordinates.length < 2) {
     return null
@@ -167,19 +164,19 @@ function TrackLine({
       </strong>
       <div>
         {isNode && feature.properties.nodeKind
-          ? nodeKindLabel(feature.properties.nodeKind)
-          : trackFormLabel(form, feature.properties.way)}
+          ? domain.node(locale, feature.properties.nodeKind)
+          : domain.trackForm(locale, form, feature.properties.way)}
       </div>
       {feature.properties.way === 'rail' && feature.properties.gauge ? (
-        <div>{gaugeLabel(feature.properties.gauge)}</div>
+        <div>{domain.gauge(locale, feature.properties.gauge)}</div>
       ) : null}
       {isTunnel ? (
         <div>
-          {gradeLabel('tunnel')}
-          {feature.properties.level != null ? ` · ${levelLabel(feature.properties.level)}` : ''}
+          {domain.grade(locale, 'tunnel')}
+          {feature.properties.level != null ? ` · ${domain.level(locale, feature.properties.level)}` : ''}
         </div>
       ) : null}
-      {feature.properties.since ? <div>{validityLabel(feature.properties.since, feature.properties.until)}</div> : null}
+      {feature.properties.since ? <div>{domain.validity(locale, feature.properties.since, feature.properties.until)}</div> : null}
     </Popup>
   ) : null
 
@@ -398,9 +395,9 @@ function pointFill(kind: string, nodeKind: NodeKind | undefined, color: string):
   return '#fff'
 }
 
-function pointTitle(feature: NetworkFeature): string {
+function pointTitle(feature: NetworkFeature, locale: Locale): string {
   if (feature.properties.kind === 'node' && feature.properties.nodeKind) {
-    return `${nodeKindLabel(feature.properties.nodeKind)} · ${feature.properties.name}`
+    return `${domain.node(locale, feature.properties.nodeKind)} · ${feature.properties.name}`
   }
   return feature.properties.name
 }

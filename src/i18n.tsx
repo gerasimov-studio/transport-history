@@ -34,6 +34,25 @@ const messages = {
     'studio.submit': 'Submit for review', 'studio.select': 'Select', 'studio.track': 'Track',
     'studio.street': 'Street', 'studio.stop': 'Stop', 'studio.node': 'Node', 'studio.name': 'Name',
     'studio.color': 'Color', 'studio.addRoute': 'Add route', 'studio.delete': 'Delete',
+    'studio.activeFrom': 'Active from', 'studio.activeUntil': 'until', 'studio.present': 'present',
+    'studio.periodClosedHint': 'The end date closes the period. Use “present” to reopen it.', 'studio.periodOpenHint': 'An open end date means it remains active.',
+    'studio.trackType': 'Track type', 'studio.streetType': 'Street type', 'studio.nodeElement': 'Node element',
+    'studio.level': 'Level', 'studio.gauge': 'Gauge', 'studio.customGauge': 'Custom gauge', 'studio.widthMm': 'Width, mm',
+    'studio.lockTurns': 'Lock turns', 'studio.undoPoint': 'Remove point', 'studio.reverse': 'Reverse',
+    'studio.deleteObject': 'Delete object', 'studio.number': 'Number', 'studio.segments': 'Segments',
+    'studio.noneYet': 'none yet', 'studio.remove': 'Remove', 'studio.deleteRoute': 'Delete route',
+    'studio.unsavedConfirm': 'There are unsaved changes. Continue?', 'studio.chooseRoute': 'Select or add a route first.',
+    'studio.inactiveTrack': 'This track is not active on', 'studio.periodMismatch': 'The track and route periods do not overlap.',
+    'studio.gaugeMismatch': 'The route and track use different gauges:', 'studio.changesCount': 'changes',
+    'studio.saveFailed': 'Could not save', 'studio.submitted': 'Changes submitted for review', 'studio.submitFailed': 'Could not submit changes',
+    'studio.route': 'Route', 'studio.portal': 'Portal',
+    'studio.hintRoad': 'Draw streets first; bus and trolleybus routes can use them later.', 'studio.hintTunnel': 'Tunnels connect by gauge and level; different levels cross without connecting.',
+    'studio.hintRail': 'Tracks snap to compatible endpoints. Surface and tunnel infrastructure remain separate.', 'studio.hintStop': 'Click the map to place a stop.',
+    'studio.hintNode': 'Place a point node or draw a linear turning element.', 'studio.hintSelect': 'Select an object on the map or in the list.',
+    'studio.hintClose': 'Set an end date to close a period. Deleting removes the object from the diagram.',
+    'studio.hintRoute': 'Select a route and click compatible infrastructure segments to assemble its path.',
+    'studio.scopeHint': 'Infrastructure is shared by the whole transport family; routes belong to the selected mode.',
+    'studio.startYear': 'Start year', 'studio.endYear': 'End year',
     'way.rail': 'Rail transport', 'way.road': 'Road transport',
     'mode.metro': 'Metro', 'mode.tram': 'Tram', 'mode.trolleybus': 'Trolleybus', 'mode.bus': 'Bus',
     'account.error': 'Error', 'account.publishError': 'Could not publish changes',
@@ -43,6 +62,8 @@ const messages = {
     'account.requestChanges': 'Request changes', 'account.reject': 'Reject',
     'account.admin': 'Manage roles', 'account.back': 'Back to my space',
     'account.signInOrRegister': 'Sign in / Register',
+    'status.draft': 'Draft', 'status.submitted': 'Submitted', 'status.changes_requested': 'Changes requested', 'status.rejected': 'Rejected', 'status.published': 'Published',
+    'visibility.private': 'Private', 'visibility.link': 'By link', 'visibility.public': 'Public',
   },
   sr: {
     'app.title': 'Istorija saobraćaja', loading: 'Učitavanje…', map: 'Mapa', editor: 'Uređivač',
@@ -68,6 +89,25 @@ const messages = {
     'studio.submit': 'Pošalji na proveru', 'studio.select': 'Izbor', 'studio.track': 'Pruga',
     'studio.street': 'Ulica', 'studio.stop': 'Stajalište', 'studio.node': 'Čvor', 'studio.name': 'Naziv',
     'studio.color': 'Boja', 'studio.addRoute': 'Dodaj liniju', 'studio.delete': 'Obriši',
+    'studio.activeFrom': 'Važi od', 'studio.activeUntil': 'do', 'studio.present': 'danas',
+    'studio.periodClosedHint': 'Krajnji datum zatvara period. Izaberite „danas“ da ga ponovo otvorite.', 'studio.periodOpenHint': 'Otvoren krajnji datum znači da i dalje važi.',
+    'studio.trackType': 'Tip pruge', 'studio.streetType': 'Tip ulice', 'studio.nodeElement': 'Element čvora',
+    'studio.level': 'Nivo', 'studio.gauge': 'Kolosek', 'studio.customGauge': 'Druga širina', 'studio.widthMm': 'Širina, mm',
+    'studio.lockTurns': 'Zaključaj uglove', 'studio.undoPoint': 'Ukloni tačku', 'studio.reverse': 'Obrni',
+    'studio.deleteObject': 'Obriši objekat', 'studio.number': 'Broj', 'studio.segments': 'Deonice',
+    'studio.noneYet': 'još nema', 'studio.remove': 'Ukloni', 'studio.deleteRoute': 'Obriši liniju',
+    'studio.unsavedConfirm': 'Postoje nesačuvane izmene. Nastaviti?', 'studio.chooseRoute': 'Prvo izaberite ili dodajte liniju.',
+    'studio.inactiveTrack': 'Ova pruga ne važi na datum', 'studio.periodMismatch': 'Periodi pruge i linije se ne preklapaju.',
+    'studio.gaugeMismatch': 'Linija i pruga koriste različite koloseke:', 'studio.changesCount': 'izmena',
+    'studio.saveFailed': 'Čuvanje nije uspelo', 'studio.submitted': 'Izmene su poslate na proveru', 'studio.submitFailed': 'Slanje izmena nije uspelo',
+    'studio.route': 'Linija', 'studio.portal': 'Portal',
+    'studio.hintRoad': 'Prvo nacrtajte ulice; autobuske i trolejbuske linije ih mogu koristiti kasnije.', 'studio.hintTunnel': 'Tuneli se povezuju po koloseku i nivou; različiti nivoi se ukrštaju bez povezivanja.',
+    'studio.hintRail': 'Pruge se spajaju sa kompatibilnim krajevima. Površinska i tunelska infrastruktura ostaju odvojene.', 'studio.hintStop': 'Kliknite mapu da postavite stajalište.',
+    'studio.hintNode': 'Postavite tačkasti čvor ili nacrtajte linearni okretni element.', 'studio.hintSelect': 'Izaberite objekat na mapi ili u listi.',
+    'studio.hintClose': 'Unesite krajnji datum da zatvorite period. Brisanje uklanja objekat sa šeme.',
+    'studio.hintRoute': 'Izaberite liniju i kliknite kompatibilne infrastrukturne deonice da sastavite trasu.',
+    'studio.scopeHint': 'Infrastruktura je zajednička celoj grupi prevoza; linije pripadaju izabranom vidu.',
+    'studio.startYear': 'Početna godina', 'studio.endYear': 'Krajnja godina',
     'way.rail': 'Železnički saobraćaj', 'way.road': 'Drumski saobraćaj',
     'mode.metro': 'Metro', 'mode.tram': 'Tramvaj', 'mode.trolleybus': 'Trolejbus', 'mode.bus': 'Autobus',
     'account.error': 'Greška', 'account.publishError': 'Izmene nisu objavljene',
@@ -77,6 +117,8 @@ const messages = {
     'account.requestChanges': 'Traži izmene', 'account.reject': 'Odbij',
     'account.admin': 'Upravljanje ulogama', 'account.back': 'Nazad u moj prostor',
     'account.signInOrRegister': 'Prijava / Registracija',
+    'status.draft': 'Nacrt', 'status.submitted': 'Poslato', 'status.changes_requested': 'Potrebne izmene', 'status.rejected': 'Odbijeno', 'status.published': 'Objavljeno',
+    'visibility.private': 'Privatno', 'visibility.link': 'Putem veze', 'visibility.public': 'Javno',
   },
   ru: {
     'app.title': 'История транспорта', loading: 'Загрузка…', map: 'Карта', editor: 'Редактор',
@@ -102,6 +144,25 @@ const messages = {
     'studio.submit': 'Отправить на модерацию', 'studio.select': 'Выбор', 'studio.track': 'Путь',
     'studio.street': 'Улица', 'studio.stop': 'Остановка', 'studio.node': 'Узел', 'studio.name': 'Имя',
     'studio.color': 'Цвет', 'studio.addRoute': 'Добавить маршрут', 'studio.delete': 'Удалить',
+    'studio.activeFrom': 'Действует с', 'studio.activeUntil': 'по', 'studio.present': 'н.в.',
+    'studio.periodClosedHint': 'Дата «по» закрывает период. Кнопка «н.в.» снова открывает его.', 'studio.periodOpenHint': 'Открытая дата — действует до сих пор.',
+    'studio.trackType': 'Тип пути', 'studio.streetType': 'Тип улицы', 'studio.nodeElement': 'Элемент узла',
+    'studio.level': 'Ярус', 'studio.gauge': 'Колея', 'studio.customGauge': 'Своя ширина', 'studio.widthMm': 'Ширина, мм',
+    'studio.lockTurns': 'Закреплять повороты', 'studio.undoPoint': 'Убрать точку', 'studio.reverse': 'Развернуть',
+    'studio.deleteObject': 'Удалить объект', 'studio.number': 'Номер', 'studio.segments': 'Участки',
+    'studio.noneYet': 'пока нет', 'studio.remove': 'Убрать', 'studio.deleteRoute': 'Удалить маршрут',
+    'studio.unsavedConfirm': 'Есть несохранённые правки. Продолжить?', 'studio.chooseRoute': 'Сначала выберите или добавьте маршрут.',
+    'studio.inactiveTrack': 'Этот путь не действует', 'studio.periodMismatch': 'Периоды пути и маршрута не пересекаются.',
+    'studio.gaugeMismatch': 'Маршрут и путь используют разную колею:', 'studio.changesCount': 'изменений',
+    'studio.saveFailed': 'Не удалось сохранить', 'studio.submitted': 'Изменения отправлены на модерацию', 'studio.submitFailed': 'Не удалось отправить изменения',
+    'studio.route': 'Маршрут', 'studio.portal': 'Выход',
+    'studio.hintRoad': 'Сначала нарисуйте улицы; затем по ним можно проложить автобусные и троллейбусные маршруты.', 'studio.hintTunnel': 'Тоннели соединяются по колее и ярусу; разные ярусы пересекаются без соединения.',
+    'studio.hintRail': 'Пути привязываются к совместимым стыкам. Наземная и тоннельная инфраструктура разделены.', 'studio.hintStop': 'Кликните карту, чтобы поставить остановку.',
+    'studio.hintNode': 'Поставьте точечный узел или нарисуйте линейный оборотный элемент.', 'studio.hintSelect': 'Выберите объект на карте или в списке.',
+    'studio.hintClose': 'Укажите конечную дату, чтобы закрыть период. Удаление убирает объект из схемы.',
+    'studio.hintRoute': 'Выберите маршрут и кликайте по совместимым участкам инфраструктуры, чтобы собрать трассу.',
+    'studio.scopeHint': 'Инфраструктура общая для всей группы транспорта; маршруты относятся к выбранному виду.',
+    'studio.startYear': 'Год начала', 'studio.endYear': 'Год окончания',
     'way.rail': 'Рельсовый транспорт', 'way.road': 'Дорожный транспорт',
     'mode.metro': 'Метро', 'mode.tram': 'Трамвай', 'mode.trolleybus': 'Троллейбус', 'mode.bus': 'Автобус',
     'account.error': 'Ошибка', 'account.publishError': 'Не удалось опубликовать изменения',
@@ -111,6 +172,8 @@ const messages = {
     'account.requestChanges': 'Вернуть на доработку', 'account.reject': 'Отклонить',
     'account.admin': 'Управление ролями', 'account.back': 'Назад в моё пространство',
     'account.signInOrRegister': 'Войти / зарегистрироваться',
+    'status.draft': 'Черновик', 'status.submitted': 'Отправлено', 'status.changes_requested': 'Нужна доработка', 'status.rejected': 'Отклонено', 'status.published': 'Опубликовано',
+    'visibility.private': 'Личный', 'visibility.link': 'По ссылке', 'visibility.public': 'Публичный',
   },
 } as const
 
@@ -118,13 +181,8 @@ type MessageKey = keyof typeof messages.en
 type I18nValue = { locale: Locale; setLocale: (locale: Locale, persist?: boolean) => Promise<void>; t: (key: MessageKey) => string }
 const I18nContext = createContext<I18nValue | null>(null)
 
-function detectedLocale(): Locale {
-  const candidate = navigator.languages.map((value) => value.toLowerCase().split('-')[0]).find((value) => value === 'sr' || value === 'ru')
-  return candidate === 'sr' || candidate === 'ru' ? candidate : 'en'
-}
-
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, updateLocale] = useState<Locale>(detectedLocale)
+  const [locale, updateLocale] = useState<Locale>('en')
   useEffect(() => {
     api<{ user: { preferredLanguage: Locale | null } }>('/api/me')
       .then((body) => { if (body.user.preferredLanguage) updateLocale(body.user.preferredLanguage) })
