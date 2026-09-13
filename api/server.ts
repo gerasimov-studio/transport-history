@@ -530,6 +530,7 @@ function validatedInfra(input: unknown, way: TransportWay, fallbackSince: string
       id: entity.id,
       kind: entity.kind,
       way,
+      mode: entity.mode && modes.has(entity.mode) && wayOf(entity.mode) === way ? entity.mode : undefined,
       gauge: way === 'rail' ? asGauge(entity.gauge) : undefined,
       grade,
       level,
@@ -560,7 +561,7 @@ function validatedRoutes(input: unknown, mode: TransportMode, fallbackSince: str
     const segmentIds = Array.isArray(entity.segmentIds)
       ? entity.segmentIds.filter((value): value is string => typeof value === 'string' && value.length > 0)
       : []
-    const road = mode === 'bus' || mode === 'trolleybus'
+    const road = mode === 'bus'
     const geometry = entity.geometry
     if (road && geometry != null) {
       if (geometry.type !== 'LineString' || !Array.isArray(geometry.coordinates) ||

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { HistoryPanel } from '../components/HistoryPanel'
 import { MapStage, type ViewerFeature } from '../components/MapStage'
@@ -18,7 +18,7 @@ import { Link } from 'react-router-dom'
 const initialModes: Record<TransportMode, boolean> = {
   metro: true,
   tram: true,
-  trolleybus: false,
+  trolleybus: true,
   bus: false,
 }
 
@@ -30,7 +30,7 @@ export function ViewerPage() {
   const mapStart = useVisitorLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const workspaceId = searchParams.get('workspace') || 'main'
-  const initialLinkedStart = useRef(mapStartFromParams(searchParams))
+  const [initialLinkedStart] = useState(() => mapStartFromParams(searchParams))
   const { catalog, error: catalogError } = useCatalog({ loadNetworks: false })
   const [date, setDate] = useState<string | null>(() => searchParams.get('date'))
   const [modes, setModes] = useState(initialModes)
@@ -160,7 +160,7 @@ export function ViewerPage() {
 
   return (
     <div className="app">
-      <MapStage city={city} start={initialLinkedStart.current ?? mapStart} features={features} highlight={showChanges} onViewportChange={handleViewportChange} />
+      <MapStage city={city} start={initialLinkedStart ?? mapStart} features={features} highlight={showChanges} onViewportChange={handleViewportChange} />
       <header className="brand">
         <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
         <Link className="brand__account" to="/account">{user?.username ?? t('account.signInOrRegister')}</Link>

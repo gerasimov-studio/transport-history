@@ -356,7 +356,7 @@ export function EditorPage() {
     if (!draft) {
       return
     }
-    if (draft.layer === 'route' && draft.way === 'road' && tool === 'route' && selectedRouteId) {
+    if (draft.layer === 'route' && draft.mode === 'bus' && tool === 'route' && selectedRouteId) {
       updateRoute(selectedRouteId, (route) => ({
         ...route,
         segmentIds: [],
@@ -371,6 +371,7 @@ export function EditorPage() {
         id,
         kind: 'stop',
         way: draft.way,
+        mode: draft.mode,
         gauge: draft.way === 'rail' ? canonicalGauge(drawGauge) : undefined,
         ...railProfile(draft.way, drawGrade, drawLevel),
         since: drawSince,
@@ -429,6 +430,7 @@ export function EditorPage() {
         id,
         kind: isNode ? 'node' : 'track',
         way: draft.way,
+        mode: draft.mode,
         gauge: draft.way === 'rail' ? canonicalGauge(drawGauge) : undefined,
         ...railProfile(draft.way, drawGrade, drawLevel),
         since: drawSince,
@@ -452,6 +454,7 @@ export function EditorPage() {
       id,
       kind: 'node',
       way: draft.way,
+      mode: draft.mode,
       gauge: draft.way === 'rail' ? canonicalGauge(drawGauge) : undefined,
       ...railProfile(draft.way, drawGrade, drawLevel, nodeKind === 'portal'),
       since: drawSince,
@@ -473,6 +476,10 @@ export function EditorPage() {
     }
     const segment = draft.infra.find((entity) => entity.id === infraId)
     if (!segment || segment.kind !== 'track' || infraWay(segment) !== draft.way) {
+      return
+    }
+    if (draft.mode === 'trolleybus' && segment.mode !== 'trolleybus') {
+      setMessage(t('studio.trolleyWireMismatch'))
       return
     }
     const alreadyOnRoute = draft.routes.some((route) => route.id === selectedRouteId && route.segmentIds.includes(infraId))
@@ -628,7 +635,8 @@ export function EditorPage() {
     return <p className="app-status">{t('loading')}</p>
   }
 
-  const infraOfWay = draft.infra.filter((entity) => infraWay(entity) === draft.way)
+  const infraOfWay = draft.infra.filter((entity) =>
+    infraWay(entity) === draft.way && (draft.mode !== 'trolleybus' || entity.mode === 'trolleybus'))
   const routesOfMode = draft.routes.filter((route) => route.mode === draft.mode)
   const orderedRoutes = [
     ...routesOfMode.filter((route) => route.id !== selectedRouteId && infraAliveAt(route, draft.date)),
@@ -646,8 +654,8 @@ export function EditorPage() {
         city={city}
         features={mapFeatures}
         selectedKey={draft.layer === 'infra' ? selectedInfraId : selectedRouteId}
-        tool={draft.layer === 'route' && draft.way === 'road' ? 'route' : draft.layer === 'infra' ? tool : 'select'}
-        enableVertices={draft.layer === 'infra' || (draft.layer === 'route' && draft.way === 'road')}
+        tool={draft.layer === 'route' && draft.mode === 'bus' ? 'route' : draft.layer === 'infra' ? tool : 'select'}
+        enableVertices={draft.layer === 'infra' || (draft.layer === 'route' && draft.mode === 'bus')}
         muteInfra={draft.layer === 'route'}
         lockTurns={lockTurns}
         snapWay={draft.way}
@@ -666,7 +674,7 @@ export function EditorPage() {
             : undefined
         }
         previousPoint={
-          draft.layer === 'route' && draft.way === 'road'
+          draft.layer === 'route' && draft.mode === 'bus'
             ? draft.routes.find((route) => route.id === selectedRouteId)?.geometry?.coordinates.at(-1)
             : selectedInfra?.geometry.type === 'LineString'
             ? selectedInfra.geometry.coordinates.at(-1)
@@ -674,7 +682,7 @@ export function EditorPage() {
         }
         onSelect={(feature) => {
           if (draft.layer === 'route') {
-            if (draft.way === 'rail') {
+            if (draft.mode !== 'bus') {
               const infraId = feature.properties.infraId
               if (infraId && draft.infra.some((entity) => entity.id === infraId && entity.kind === 'track' && infraWay(entity) === draft.way)) {
                 toggleSegment(infraId)
@@ -709,7 +717,7 @@ export function EditorPage() {
         }}
         onMapClick={handleMapClick}
         onMoveVertex={(key, index, coord) => {
-          if (draft.layer === 'route' && draft.way === 'road') {
+          if (draft.layer === 'route' && draft.mode === 'bus') {
             updateRoute(key, (route) => {
               if (!route.geometry) return route
               const coordinates = route.geometry.coordinates.slice()
@@ -860,7 +868,7 @@ export function EditorPage() {
           setSelectedInfraId(null)
         }}
         onUndoVertex={() => {
-          if (draft.layer === 'route' && draft.way === 'road' && selectedRouteId) {
+          if (draft.layer === 'route' && draft.mode === 'bus' && selectedRouteId) {
             updateRoute(selectedRouteId, (route) => route.geometry
               ? { ...route, geometry: { type: 'LineString', coordinates: route.geometry.coordinates.slice(0, -1) } }
               : route)
@@ -888,7 +896,7 @@ export function EditorPage() {
           )
         }}
         onReverse={() => {
-          if (draft.layer === 'route' && draft.way === 'road' && selectedRouteId) {
+          if (draft.layer === 'route' && draft.mode === 'bus' && selectedRouteId) {
             updateRoute(selectedRouteId, (route) => route.geometry
               ? { ...route, geometry: { type: 'LineString', coordinates: [...route.geometry.coordinates].reverse() } }
               : route)
@@ -905,7 +913,7 @@ export function EditorPage() {
         }}
         onSelectRoute={(id) => {
           setSelectedRouteId(id)
-          if (draft.way === 'road') setTool('route')
+          if (draft.mode === 'bus') setTool('route')
           const route = draft.routes.find((item) => item.id === id)
           if (route?.since) {
             setDrawSince(route.since)
@@ -944,13 +952,13 @@ export function EditorPage() {
             name: `${t('studio.route')} №${number}`,
             color: MODE_COLORS[draft.mode],
             segmentIds: [],
-            geometry: draft.way === 'road' ? { type: 'LineString', coordinates: [] } : undefined,
+            geometry: draft.mode === 'bus' ? { type: 'LineString', coordinates: [] } : undefined,
             since: drawSince,
             until: drawUntil || undefined,
           }
           setDraft((current) => (current ? { ...current, routes: [...current.routes, route] } : current))
           setSelectedRouteId(id)
-          if (draft.way === 'road') setTool('route')
+          if (draft.mode === 'bus') setTool('route')
         }}
         onDeleteRoute={() => {
           if (!selectedRouteId) {

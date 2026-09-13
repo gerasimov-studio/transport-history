@@ -90,7 +90,7 @@ export function normalizeRoute(entity: RouteEntity): RouteEntity {
     name: entity.name,
     color: entity.color,
     segmentIds: entity.segmentIds,
-    geometry: entity.geometry,
+    geometry: entity.mode === 'bus' ? entity.geometry : undefined,
     since,
     until: until && since && until < since ? since : until,
   }
@@ -107,6 +107,7 @@ export function normalizeInfra(entity: InfraEntity, fallbackWay: TransportWay = 
     id: entity.id,
     kind: entity.kind,
     way,
+    mode: entity.mode,
     gauge,
     grade,
     level,
