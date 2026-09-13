@@ -10,6 +10,7 @@
     "data:metro": "node --experimental-strip-types --no-warnings scripts/export-metro-snapshots.ts",
     "data:sarajevo-tram": "node --experimental-strip-types --no-warnings scripts/seed-sarajevo-tram-history.ts",
     "data:sarajevo-trolleybus": "node --experimental-strip-types --no-warnings scripts/seed-sarajevo-trolleybus-history.ts",
+    "data:balakovo-trolleybus": "node --experimental-strip-types --no-warnings scripts/seed-balakovo-trolleybus-history.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },
