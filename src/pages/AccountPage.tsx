@@ -26,8 +26,6 @@ type ChangeSet = {
   updatedAt: string
 }
 
-type AccountUser = { id: number; username: string; role: 'user' | 'moderator' | 'superuser'; createdAt: string }
-
 export function AccountPage() {
   const { user, loading, setUser } = useSession()
   const { locale, setLocale, t } = useI18n()
@@ -35,10 +33,8 @@ export function AccountPage() {
   const [changesets, setChangesets] = useState<ChangeSet[]>([])
   const [title, setTitle] = useState('')
   const [message, setMessage] = useState<string | null>(null)
-  const [users, setUsers] = useState<AccountUser[]>([])
   const [authName, setAuthName] = useState('')
   const [authPassword, setAuthPassword] = useState('')
-  const [registering, setRegistering] = useState(false)
 
   async function reload() {
     const [spaces, changes] = await Promise.all([
@@ -47,9 +43,6 @@ export function AccountPage() {
     ])
     setWorkspaces(spaces.workspaces)
     setChangesets(changes.changesets)
-    if (user?.role === 'superuser') {
-      setUsers((await api<{ users: AccountUser[] }>('/api/users')).users)
-    }
   }
 
   // The effect synchronizes this page with the authenticated server session.
@@ -82,7 +75,7 @@ export function AccountPage() {
   async function authenticate(event: FormEvent) {
     event.preventDefault()
     try {
-      const body = await api<{ user: NonNullable<typeof user> }>(registering ? '/api/register' : '/api/login', {
+      const body = await api<{ user: NonNullable<typeof user> }>('/api/login', {
         method: 'POST',
         body: JSON.stringify({ username: authName, password: authPassword }),
       })
@@ -100,11 +93,6 @@ export function AccountPage() {
     await reload()
   }
 
-  async function setRole(id: number, role: 'user' | 'moderator') {
-    await api(`/api/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) })
-    await reload()
-  }
-
   if (loading) return <p className="app-status">{t('loading')}</p>
   if (!user) return (
     <main className="workspace-page">
@@ -112,16 +100,16 @@ export function AccountPage() {
       {message ? <p className="studio-message">{message}</p> : null}
       <form className="workspace-card workspace-form" onSubmit={authenticate}>
         <label className="studio-field">{t('login.username')}<input value={authName} onChange={(event) => setAuthName(event.target.value)} autoComplete="username" /></label>
-        <label className="studio-field">{t('login.password')}<input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} autoComplete={registering ? 'new-password' : 'current-password'} placeholder={registering ? t('account.passwordHint') : ''} /></label>
-        <button className="studio-btn studio-btn--primary">{registering ? t('account.register') : t('login.submit')}</button>
-        <button type="button" className="studio-btn" onClick={() => setRegistering((value) => !value)}>{registering ? t('account.haveAccount') : t('account.register')}</button>
+        <label className="studio-field">{t('login.password')}<input type="password" value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} autoComplete="current-password" /></label>
+        <button className="studio-btn studio-btn--primary">{t('login.submit')}</button>
+        <Link className="studio-btn" to="/register">{t('account.register')}</Link>
       </form>
     </main>
   )
 
   return (
     <main className="workspace-page">
-      <nav className="workspace-nav"><Link to="/">{t('map')}</Link><Link to="/edit">{t('editor')}</Link></nav>
+      <nav className="workspace-nav"><Link to="/">{t('map')}</Link><Link to="/edit">{t('editor')}</Link>{user.role === 'superuser' ? <Link to="/admin/users">{t('account.admin')}</Link> : null}</nav>
       <header><p className="brand__kicker">{t('account.kicker')}</p><h1>{user.username}</h1></header>
       <label className="workspace-language">
         <span>{t('language')}</span>
@@ -171,26 +159,6 @@ export function AccountPage() {
                 <button className="studio-btn studio-btn--primary" onClick={() => void publish(change.id)}>{t('account.publish')}</button>
                 <button className="studio-btn" onClick={() => void review(change.id, 'changes_requested')}>{t('account.requestChanges')}</button>
                 <button className="studio-btn studio-btn--danger" onClick={() => void review(change.id, 'rejected')}>{t('account.reject')}</button>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-      {user.role === 'superuser' ? (
-        <section className="workspace-card">
-          <h2>{t('account.users')}</h2>
-          <div className="workspace-grid">
-            {users.map((item) => (
-              <article key={item.id} className="workspace-item">
-                <h3>{item.username}</h3>
-                {item.role === 'superuser' ? <span>{t('account.superuser')}</span> : (
-                  <label className="studio-field">{t('account.role')}
-                    <select value={item.role} onChange={(event) => void setRole(item.id, event.target.value as 'user' | 'moderator')}>
-                      <option value="user">{t('account.user')}</option>
-                      <option value="moderator">{t('account.moderator')}</option>
-                    </select>
-                  </label>
-                )}
               </article>
             ))}
           </div>

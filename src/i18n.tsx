@@ -41,6 +41,7 @@ const messages = {
     'account.passwordHint': 'At least 8 characters', 'account.users': 'Users', 'account.role': 'Role',
     'account.user': 'User', 'account.moderator': 'Moderator', 'account.superuser': 'Superuser',
     'account.requestChanges': 'Request changes', 'account.reject': 'Reject',
+    'account.admin': 'Manage roles', 'account.back': 'Back to my space',
   },
   sr: {
     'app.title': 'Istorija saobraćaja', loading: 'Učitavanje…', map: 'Mapa', editor: 'Uređivač',
@@ -73,6 +74,7 @@ const messages = {
     'account.passwordHint': 'Najmanje 8 znakova', 'account.users': 'Korisnici', 'account.role': 'Uloga',
     'account.user': 'Korisnik', 'account.moderator': 'Moderator', 'account.superuser': 'Superkorisnik',
     'account.requestChanges': 'Traži izmene', 'account.reject': 'Odbij',
+    'account.admin': 'Upravljanje ulogama', 'account.back': 'Nazad u moj prostor',
   },
   ru: {
     'app.title': 'История транспорта', loading: 'Загрузка…', map: 'Карта', editor: 'Редактор',
@@ -105,6 +107,7 @@ const messages = {
     'account.passwordHint': 'Минимум 8 символов', 'account.users': 'Пользователи', 'account.role': 'Роль',
     'account.user': 'Пользователь', 'account.moderator': 'Модератор', 'account.superuser': 'Суперпользователь',
     'account.requestChanges': 'Вернуть на доработку', 'account.reject': 'Отклонить',
+    'account.admin': 'Управление ролями', 'account.back': 'Назад в моё пространство',
   },
 } as const
 

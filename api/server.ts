@@ -301,8 +301,12 @@ function asBounds(raw: string): Bounds | null {
   if (values.length !== 4 || values.some((value) => !Number.isFinite(value))) {
     return null
   }
-  const [west, south, east, north] = values as [number, number, number, number]
-  if (west < -180 || east > 180 || south < -90 || north > 90 || west >= east || south >= north) {
+  const [rawWest, rawSouth, rawEast, rawNorth] = values as [number, number, number, number]
+  const west = Math.max(-180, rawWest)
+  const east = Math.min(180, rawEast)
+  const south = Math.max(-90, rawSouth)
+  const north = Math.min(90, rawNorth)
+  if (west >= east || south >= north) {
     return null
   }
   return { west, south, east, north }
