@@ -19,6 +19,8 @@ const initialModes: Record<TransportMode, boolean> = {
   bus: false,
 }
 
+const today = new Date().toISOString().slice(0, 10)
+
 export function ViewerPage() {
   const { t } = useI18n()
   const [searchParams] = useSearchParams()
@@ -40,7 +42,8 @@ export function ViewerPage() {
     if (catalog?.dates?.length) {
       return catalog.dates
     }
-    return snapshotDates(citySnapshots)
+    const snapshotDateList = snapshotDates(citySnapshots)
+    return snapshotDateList.length ? snapshotDateList : [today]
   }, [catalog, citySnapshots])
   const selectedDate = useMemo(() => {
     if (dates.length === 0) {
@@ -181,24 +184,19 @@ export function ViewerPage() {
             })
           }}
         />
-        <label className={showChanges ? 'hud-panel highlight-toggle is-on' : 'hud-panel highlight-toggle'}>
+        {previousDate ? <label className={showChanges ? 'hud-panel highlight-toggle is-on' : 'hud-panel highlight-toggle'}>
           <input
             type="checkbox"
             checked={showChanges}
-            disabled={!previousDate}
             onChange={(event) => setShowChanges(event.target.checked)}
           />
           <span>
             {t('viewer.changes')}
-            {previousDate ? (
-              <small>
-                {hasDiff(diff) ? formatSnapshotDate(previousDate) : t('viewer.noDifferences')}
-              </small>
-            ) : (
-              <small>{t('viewer.firstDate')}</small>
-            )}
+            <small>
+              {hasDiff(diff) ? formatSnapshotDate(previousDate) : t('viewer.noDifferences')}
+            </small>
           </span>
-        </label>
+        </label> : null}
         <HistoryPanel date={selectedDate} snapshots={activeSnapshots} routeLabels={routeLabels} />
         {viewport && selectedDate ? (
           <div className="hud-panel export-panel">
