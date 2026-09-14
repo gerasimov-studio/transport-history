@@ -69,6 +69,8 @@ export function ViewerPage() {
   }, [catalogDates, date])
   const { state, error: stateError } = useViewportState(viewport, selectedDate, workspaceId)
   const dates = state?.dates?.length ? state.dates : catalogDates
+  const timelineEvents = useMemo(() => state?.events ?? [], [state?.events])
+  const eventDates = useMemo(() => snapshotDates(timelineEvents), [timelineEvents])
   const previousDate = useMemo(() => {
     if (!selectedDate) {
       return null
@@ -79,7 +81,11 @@ export function ViewerPage() {
   const activeSnapshots = useMemo(
     () =>
       selectedDate
-        ? currentSnapshots(state?.chronicles ?? citySnapshots, modes, selectedDate)
+        ? (() => {
+            const available = timelineEvents.length ? timelineEvents : (state?.chronicles ?? citySnapshots)
+            const exact = available.filter((snapshot) => snapshot.date === selectedDate && modes[snapshot.mode])
+            return exact.length ? exact : currentSnapshots(available, modes, selectedDate)
+          })()
             .slice()
             .sort((left, right) => {
               const leftHit = left.date === selectedDate ? 0 : 1
@@ -87,7 +93,7 @@ export function ViewerPage() {
               return leftHit - rightHit || left.mode.localeCompare(right.mode)
             })
         : [],
-    [citySnapshots, modes, selectedDate, state?.chronicles],
+    [citySnapshots, modes, selectedDate, state?.chronicles, timelineEvents],
   )
   const listedRoutes = useMemo(
     () =>
@@ -216,7 +222,20 @@ export function ViewerPage() {
             </small>
           </span>
         </label> : null}
-        {detailedView ? <HistoryPanel date={selectedDate} snapshots={activeSnapshots} routeLabels={routeLabels} /> : null}
+        {detailedView ? <HistoryPanel
+          date={selectedDate}
+          snapshots={activeSnapshots}
+          events={timelineEvents}
+          routeLabels={routeLabels}
+          onSelectDate={(next) => {
+            setDate(next)
+            setSearchParams((current) => {
+              const params = new URLSearchParams(current)
+              params.set('date', next)
+              return params
+            }, { replace: true })
+          }}
+        /> : null}
         {viewport && selectedDate ? (
           <div className="hud-panel export-panel">
             <label>
@@ -233,7 +252,7 @@ export function ViewerPage() {
         ) : null}
       </div>
       {detailedView && selectedDate ? (
-        <Timeline dates={[...new Set([...dates, selectedDate])].sort()} date={selectedDate} onDateChange={(next) => {
+        <Timeline dates={eventDates.length ? eventDates : dates} date={selectedDate} onDateChange={(next) => {
           setDate(next)
           setSearchParams((current) => {
             const params = new URLSearchParams(current)

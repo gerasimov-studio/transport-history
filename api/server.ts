@@ -354,7 +354,7 @@ async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail
       [date, bounds.west, bounds.south, bounds.east, bounds.north],
     )
     return {
-      scope: 'viewport', bounds, zoom, date, dates: [], infra: [], routes: [], chronicles: [], features: [],
+      scope: 'viewport', bounds, zoom, date, dates: [], events: [], infra: [], routes: [], chronicles: [], features: [],
       places: places.rows.map((place) => ({
         id: place.id, name: place.name, center: [place.lat, place.lng], modes: place.modes ?? [],
       })),
@@ -413,13 +413,17 @@ async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail
   const localScopes = scopeResult.rows.map((row) => row.source_scope)
   const scopes = [...new Set([...localScopes, 'world'])]
   const chronicles = []
+  const timelineEvents = new Map<string, ReturnType<typeof projectEvents>['chronicles'] extends Map<string, infer T> ? T : never>()
   const dates = new Set<string>()
   for (const scope of scopes) {
     const events = await loadEvents(scope)
     chronicles.push(...projectEvents(events, date).chronicles.values())
     if (scope === 'world') continue
     const complete = projectEvents(events)
-    for (const item of complete.chronicles.values()) dates.add(item.date)
+    for (const item of complete.chronicles.values()) {
+      dates.add(item.date)
+      timelineEvents.set(item.id, item)
+    }
     for (const item of complete.infra.values()) {
       if (item.since) dates.add(item.since)
       if (item.until) dates.add(item.until)
@@ -437,6 +441,7 @@ async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail
     zoom,
     date,
     dates: [...dates].sort(),
+    events: [...timelineEvents.values()].sort((left, right) => left.date.localeCompare(right.date)),
     infra: [...infra.values()],
     routes: [...routes.values()],
     chronicles: chronicles.sort((left, right) => left.date.localeCompare(right.date)),

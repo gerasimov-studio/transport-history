@@ -476,6 +476,11 @@ input {
   letter-spacing: 0.08em;
 }
 
+.history-panel__nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 14px; }
+.history-panel__nav button { border: 1px solid var(--panel-border); background: transparent; color: var(--text-strong); padding: 5px 7px; cursor: pointer; }
+.history-panel__nav button:disabled { opacity: 0.35; cursor: default; }
+.history-panel__nav span { color: var(--muted); font-size: 11px; }
+
 .history-panel__snapshot + .history-panel__snapshot {
   margin-top: 16px;
   padding-top: 14px;

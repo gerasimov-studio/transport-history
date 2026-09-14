@@ -6,14 +6,20 @@ import { useI18n } from '../i18n'
 type HistoryPanelProps = {
   date: string | null
   snapshots: Snapshot[]
+  events?: Snapshot[]
   routeLabels?: Record<string, string[]>
+  onSelectDate?: (date: string) => void
 }
 
-export function HistoryPanel({ date, snapshots, routeLabels = {} }: HistoryPanelProps) {
+export function HistoryPanel({ date, snapshots, events = [], routeLabels = {}, onSelectDate }: HistoryPanelProps) {
   const [open, setOpen] = useState(true)
   const { t } = useI18n()
   const primary = snapshots[0]
   const year = date?.slice(0, 4) ?? '—'
+  const eventDates = [...new Set(events.map((event) => event.date))].sort()
+  const currentIndex = date ? eventDates.findLastIndex((item) => item <= date) : -1
+  const previousEvent = currentIndex > 0 ? eventDates[currentIndex - 1] : undefined
+  const nextEvent = currentIndex < eventDates.length - 1 ? eventDates[currentIndex + 1] : undefined
 
   return (
     <aside
@@ -51,6 +57,17 @@ export function HistoryPanel({ date, snapshots, routeLabels = {} }: HistoryPanel
         <div className="history-panel__body">
           <p className="history-panel__year">{year}</p>
           {date ? <p className="history-panel__date">{formatSnapshotDate(date)}</p> : null}
+          {eventDates.length > 1 ? (
+            <nav className="history-panel__nav" aria-label={t('history.events')}>
+              <button type="button" disabled={!previousEvent} onClick={() => previousEvent && onSelectDate?.(previousEvent)}>
+                ← {t('history.previous')}
+              </button>
+              <span>{Math.max(1, currentIndex + 1)} / {eventDates.length}</span>
+              <button type="button" disabled={!nextEvent} onClick={() => nextEvent && onSelectDate?.(nextEvent)}>
+                {t('history.next')} →
+              </button>
+            </nav>
+          ) : null}
           {snapshots.length === 0 ? (
             <p className="history-panel__summary">{t('history.noArticles')}</p>
           ) : (

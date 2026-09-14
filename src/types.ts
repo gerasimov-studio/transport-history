@@ -188,6 +188,7 @@ export type NetworkState = {
   infra: InfraEntity[]
   routes: RouteEntity[]
   chronicles: Snapshot[]
+  events?: Snapshot[]
   features: NetworkFeature[]
   places?: MapPlace[]
 }
