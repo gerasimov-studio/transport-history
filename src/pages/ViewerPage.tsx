@@ -148,6 +148,7 @@ export function ViewerPage() {
       .map((feature) => ({ ...feature, accent: 'removed' as const }))
     return [...ghosts, ...current]
   }, [baseFeatures, diff, modes, previous, showChanges])
+  const detailedView = (viewport?.zoom ?? initialLinkedStart?.zoom ?? mapStart.zoom) >= 11
 
   const error = catalogError ?? stateError
   if (error) {
@@ -208,7 +209,7 @@ export function ViewerPage() {
             })
           }}
         />
-        {previousDate ? <label className={showChanges ? 'hud-panel highlight-toggle is-on' : 'hud-panel highlight-toggle'}>
+        {detailedView && previousDate ? <label className={showChanges ? 'hud-panel highlight-toggle is-on' : 'hud-panel highlight-toggle'}>
           <input
             type="checkbox"
             checked={showChanges}
@@ -221,7 +222,7 @@ export function ViewerPage() {
             </small>
           </span>
         </label> : null}
-        <HistoryPanel date={selectedDate} snapshots={activeSnapshots} routeLabels={routeLabels} />
+        {detailedView ? <HistoryPanel date={selectedDate} snapshots={activeSnapshots} routeLabels={routeLabels} /> : null}
         {viewport && selectedDate ? (
           <div className="hud-panel export-panel">
             <label>
@@ -237,7 +238,7 @@ export function ViewerPage() {
           </div>
         ) : null}
       </div>
-      {selectedDate ? (
+      {detailedView && selectedDate ? (
         <Timeline dates={dates} date={selectedDate} onDateChange={(next) => {
           setDate(next)
           setSearchParams((current) => {
