@@ -213,6 +213,15 @@ async function catalogFromEvents() {
      FROM cities ORDER BY id`,
   )
   const codes = await pool.query('SELECT code, mode FROM mode_codes')
+  const systems = await pool.query<{
+    id: string; name: string; aliases: string[]; lat: number; lng: number; zoom: number; localities: string[]
+  }>(
+    `SELECT system.id, system.name, system.aliases, system.lat, system.lng, system.zoom,
+            array_agg(locality.name ORDER BY locality.name) FILTER (WHERE locality.name IS NOT NULL) AS localities
+     FROM transport_systems system
+     LEFT JOIN transport_system_localities locality ON locality.system_id = system.id
+     GROUP BY system.id ORDER BY system.id`,
+  )
   const dateSet = new Set<string>()
   const eventDates = await pool.query<{ date: string }>(
     'SELECT DISTINCT occurred_on::text AS date FROM events ORDER BY date',
@@ -269,6 +278,10 @@ async function catalogFromEvents() {
   )
   return {
     cities: cities.rows.map((row) => catalogCity(row)),
+    systems: systems.rows.map((row) => ({
+      id: row.id, name: row.name, aliases: row.aliases, center: [row.lat, row.lng], zoom: row.zoom,
+      minZoom: 2, maxZoom: 22, localities: row.localities ?? [],
+    })),
     lines,
     modeCodes: Object.fromEntries(codes.rows.map((row) => [row.code, row.mode])),
     dates: [...dateSet].sort(),
@@ -344,12 +357,23 @@ function entityInBounds(entity: { geometry?: { coordinates: unknown } }, bounds:
 async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail = false, workspaceId = 'main') {
   if (zoom < 11 && !fullDetail) {
     const places = await pool.query<{ id: string; name: string; lat: number; lng: number; modes: TransportMode[] }>(
-      `SELECT city.id, city.name, city.lat, city.lng,
+      `SELECT system.id, system.name, system.lat, system.lng,
+              array_agg(DISTINCT event.payload->>'mode')
+                FILTER (WHERE event.payload->>'mode' IN ('metro', 'tram', 'trolleybus', 'bus')) AS modes
+       FROM transport_systems system
+       JOIN events event ON event.scope_id = system.id AND event.occurred_on <= $1
+       WHERE system.lng BETWEEN $2 AND $4 AND system.lat BETWEEN $3 AND $5
+         AND (system.valid_from IS NULL OR system.valid_from <= $1)
+         AND (system.valid_to IS NULL OR system.valid_to >= $1)
+       GROUP BY system.id, system.name, system.lat, system.lng
+       UNION ALL
+       SELECT city.id, city.name, city.lat, city.lng,
               array_agg(DISTINCT event.payload->>'mode')
                 FILTER (WHERE event.payload->>'mode' IN ('metro', 'tram', 'trolleybus', 'bus')) AS modes
        FROM cities city
        JOIN events event ON event.city_id = city.id AND event.occurred_on <= $1
        WHERE city.lng BETWEEN $2 AND $4 AND city.lat BETWEEN $3 AND $5
+         AND NOT EXISTS (SELECT 1 FROM transport_system_localities locality WHERE locality.locality_id = city.id)
        GROUP BY city.id, city.name, city.lat, city.lng`,
       [date, bounds.west, bounds.south, bounds.east, bounds.north],
     )

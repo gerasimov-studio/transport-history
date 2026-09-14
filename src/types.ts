@@ -107,6 +107,7 @@ export type CatalogLine = {
 
 export type Catalog = {
   cities: CatalogCity[]
+  systems?: Array<CatalogCity & { localities: string[] }>
   lines: CatalogLine[]
   modeCodes: Record<string, TransportMode>
   dates: string[]

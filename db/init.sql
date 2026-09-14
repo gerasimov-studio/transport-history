@@ -106,6 +106,21 @@ ALTER TABLE events ALTER COLUMN scope_id SET NOT NULL;
 ALTER TABLE events ALTER COLUMN city_id DROP NOT NULL;
 CREATE INDEX IF NOT EXISTS events_scope_date_idx ON events (scope_id, occurred_on, id);
 
+CREATE TABLE IF NOT EXISTS transport_systems (
+  id text PRIMARY KEY, name text NOT NULL, aliases text[] NOT NULL DEFAULT '{}',
+  lat double precision NOT NULL, lng double precision NOT NULL, zoom integer NOT NULL DEFAULT 11,
+  valid_from date, valid_to date
+);
+
+CREATE TABLE IF NOT EXISTS transport_system_localities (
+  system_id text NOT NULL REFERENCES transport_systems (id) ON DELETE CASCADE,
+  locality_id text NOT NULL, name text NOT NULL,
+  role text NOT NULL DEFAULT 'served' CHECK (role IN ('core', 'served', 'connected')),
+  valid_from date, valid_to date, PRIMARY KEY (system_id, locality_id)
+);
+
+CREATE INDEX IF NOT EXISTS transport_system_localities_system_idx ON transport_system_localities (system_id);
+
 -- Spatial read model. Events remain the source of truth; this projection makes
 -- viewport reads independent from administrative boundaries.
 CREATE TABLE IF NOT EXISTS network_infra (
@@ -174,6 +189,7 @@ CREATE TABLE IF NOT EXISTS changesets (
 
 CREATE INDEX IF NOT EXISTS changesets_workspace_status_idx ON changesets (workspace_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS changesets_bounds_gix ON changesets USING GIST (bounds);
+ALTER TABLE changesets ADD COLUMN IF NOT EXISTS scope_id text NOT NULL DEFAULT 'world';
 
 CREATE TABLE IF NOT EXISTS moderation_areas (
   id text PRIMARY KEY,
