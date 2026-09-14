@@ -9,6 +9,7 @@ export type SegmentLabel = {
   angle: number
   text: string
   color: string
+  priority: number
 }
 
 export type RouteRibbon = {
@@ -140,6 +141,7 @@ function placeAlong(ribbon: RouteRibbon, zoom: number): SegmentLabel[] {
       angle: uprightAngle(sample.bearing),
       text: ribbon.text,
       color: ribbon.color,
+      priority: px,
     })
   }
   return labels

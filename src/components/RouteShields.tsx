@@ -1,6 +1,6 @@
 import L from 'leaflet'
 import { useMemo } from 'react'
-import { Marker } from 'react-leaflet'
+import { Marker, useMap } from 'react-leaflet'
 import { labelsForRibbons, type RouteRibbon } from '../map/segmentLabels'
 import { useMapView } from '../map/lod'
 
@@ -9,10 +9,11 @@ type RouteShieldsProps = {
 }
 
 export function RouteShields({ ribbons }: RouteShieldsProps) {
+  const map = useMap()
   const view = useMapView()
   const labels = useMemo(
-    () => labelsForRibbons(ribbons, view.zoom, view.bounds),
-    [ribbons, view.bounds, view.zoom],
+    () => declutterLabels(labelsForRibbons(ribbons, view.zoom, view.bounds), map, view.zoom),
+    [map, ribbons, view.bounds, view.zoom],
   )
 
   if (labels.length === 0) {
@@ -32,6 +33,25 @@ export function RouteShields({ ribbons }: RouteShieldsProps) {
       ))}
     </>
   )
+}
+
+function declutterLabels(
+  labels: ReturnType<typeof labelsForRibbons>,
+  map: L.Map,
+  zoom: number,
+) {
+  const minDistance = zoom < 14 ? 280 : zoom < 16 ? 240 : 200
+  const accepted: { label: (typeof labels)[number]; point: L.Point }[] = []
+
+  for (const label of labels.slice().sort((left, right) => right.priority - left.priority)) {
+    const point = map.latLngToContainerPoint([label.point[1], label.point[0]])
+    if (accepted.some((item) => item.point.distanceTo(point) < minDistance)) {
+      continue
+    }
+    accepted.push({ label, point })
+  }
+
+  return accepted.map(({ label }) => label)
 }
 
 function shieldIcon(label: { text: string; color: string; angle: number }, zoom: number): L.DivIcon {
