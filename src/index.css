@@ -1031,6 +1031,41 @@ input {
   gap: 6px;
 }
 
+.studio-commit {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: rgba(8, 12, 16, 0.3);
+}
+
+.studio-commit__state {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.studio-commit__state.is-dirty {
+  color: #e2c38f;
+}
+
+.studio-commit__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.studio-commit__summary span {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.studio-commit__summary strong {
+  color: var(--text-strong);
+  font-size: 14px;
+}
+
 .studio-tabs {
   display: flex;
   gap: 6px;

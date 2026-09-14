@@ -207,6 +207,7 @@ export function EditorPage() {
   const { catalog, error, reload } = useCatalog({ loadNetworks: false })
   const [draft, setDraft] = useState<DraftNetwork | null>(null)
   const [baseline, setBaseline] = useState('')
+  const [savedBaseline, setSavedBaseline] = useState('')
   const [chronicles, setChronicles] = useState<Snapshot[]>([])
   const [selectedInfraId, setSelectedInfraId] = useState<string | null>(null)
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
@@ -232,7 +233,28 @@ export function EditorPage() {
   const city = catalog?.cities[0]
   const dates = catalog?.dates ?? []
   const booted = useRef(false)
-  const dirty = useMemo(() => (draft ? JSON.stringify(draft) !== baseline : false), [baseline, draft])
+  const dirty = useMemo(() => (draft ? JSON.stringify(draft) !== savedBaseline : false), [draft, savedBaseline])
+  const commitSummary = useMemo(() => {
+    if (!draft || !baseline) return { metadataChanged: 0, upsertInfra: 0, removeInfra: 0, upsertRoutes: 0, removeRoutes: 0, total: 0 }
+    const before = JSON.parse(baseline) as DraftNetwork
+    const beforeInfra = new Map(before.infra.map((entity) => [entity.id, entity]))
+    const beforeRoutes = new Map(before.routes.map((route) => [route.id, route]))
+    const currentInfra = draft.infra.filter(
+      (entity) => entity.geometry.type !== 'LineString' || entity.geometry.coordinates.length >= 2,
+    )
+    const currentInfraIds = new Set(currentInfra.map((entity) => entity.id))
+    const currentRouteIds = new Set(draft.routes.map((route) => route.id))
+    const upsertInfra = currentInfra.filter(
+      (entity) => JSON.stringify(entity) !== JSON.stringify(beforeInfra.get(entity.id)),
+    ).length
+    const removeInfra = before.infra.filter((entity) => !currentInfraIds.has(entity.id)).length
+    const upsertRoutes = draft.routes.filter(
+      (route) => JSON.stringify(route) !== JSON.stringify(beforeRoutes.get(route.id)),
+    ).length
+    const removeRoutes = before.routes.filter((route) => !currentRouteIds.has(route.id)).length
+    const metadataChanged = before.date !== draft.date || before.mode !== draft.mode || before.title !== draft.title || before.summary !== draft.summary ? 1 : 0
+    return { metadataChanged, upsertInfra, removeInfra, upsertRoutes, removeRoutes, total: metadataChanged + upsertInfra + removeInfra + upsertRoutes + removeRoutes }
+  }, [baseline, draft])
   const dirtyRef = useRef(dirty)
 
   useEffect(() => {
@@ -283,7 +305,9 @@ export function EditorPage() {
     const next = fromState('world', date, way, mode, layer, state)
     setChronicles(state.chronicles)
     setDraft(next)
-    setBaseline(JSON.stringify(next))
+    const serialized = JSON.stringify(next)
+    setBaseline(serialized)
+    setSavedBaseline(serialized)
     setSelectedInfraId(null)
     setSelectedRouteId(next.routes.find((route) => route.mode === mode)?.id ?? null)
     setTool('select')
@@ -330,7 +354,9 @@ export function EditorPage() {
       summary: chronicleFor(chronicles, draft.mode, date)?.summary ?? '',
     }
     setDraft(next)
-    setBaseline(JSON.stringify(next))
+    const serialized = JSON.stringify(next)
+    setBaseline(serialized)
+    setSavedBaseline(serialized)
     setDrawSince(date)
     setMessage(null)
   }
@@ -621,7 +647,7 @@ export function EditorPage() {
         }),
       })
       setChangeSetId(saved.id)
-      setBaseline(JSON.stringify(draft))
+      setSavedBaseline(JSON.stringify(draft))
       setMessage(`${t('studio.saved')} · ${saved.operations} ${t('studio.changesCount')}`)
       reload()
     } catch (cause) {
@@ -837,6 +863,8 @@ export function EditorPage() {
         drawUntil={drawUntil}
         lockTurns={lockTurns}
         dirty={dirty}
+        commitSummary={commitSummary}
+        hasCommit={Boolean(changeSetId)}
         saving={saving}
         message={message}
         onTool={setTool}
@@ -1114,6 +1142,14 @@ export function EditorPage() {
         }}
         onRemoveSegment={(segmentId) => toggleSegment(segmentId)}
         onSave={() => void save()}
+        onDiscard={() => {
+          if (!savedBaseline) return
+          setDraft(JSON.parse(savedBaseline) as DraftNetwork)
+          setSelectedInfraId(null)
+          setSelectedRouteId(null)
+          setTool('select')
+          setMessage(null)
+        }}
         canSubmit={Boolean(changeSetId) && !dirty}
         onSubmit={() => void submitForReview()}
         onLogout={() => void logout()}

@@ -79,6 +79,8 @@ type StudioPanelProps = {
   drawUntil: string
   lockTurns: boolean
   dirty: boolean
+  commitSummary: { metadataChanged: number; upsertInfra: number; removeInfra: number; upsertRoutes: number; removeRoutes: number; total: number }
+  hasCommit: boolean
   saving: boolean
   message: string | null
   onTool: (tool: DrawTool) => void
@@ -107,6 +109,7 @@ type StudioPanelProps = {
   onMoveSegment: (id: string, direction: -1 | 1) => void
   onRemoveSegment: (id: string) => void
   onSave: () => void
+  onDiscard: () => void
   canSubmit: boolean
   onSubmit: () => void
   onLogout: () => void
@@ -131,6 +134,8 @@ export function StudioPanel({
   drawUntil,
   lockTurns,
   dirty,
+  commitSummary,
+  hasCommit,
   saving,
   message,
   onTool,
@@ -159,6 +164,7 @@ export function StudioPanel({
   onMoveSegment,
   onRemoveSegment,
   onSave,
+  onDiscard,
   canSubmit,
   onSubmit,
   onLogout,
@@ -695,11 +701,27 @@ export function StudioPanel({
       </section>
 
       <footer className="studio-rail__foot">
+        <div className="studio-commit">
+          <div className="studio-section__title-row">
+            <h2>{t('studio.commit')}</h2>
+            <span className={`studio-commit__state${dirty ? ' is-dirty' : ''}`}>
+              {dirty ? t('studio.localChanges') : hasCommit ? t('studio.commitSaved') : t('studio.noChanges')}
+            </span>
+          </div>
+          <div className="studio-commit__summary" aria-label={t('studio.commitContents')}>
+            <span><strong>{commitSummary.metadataChanged}</strong>{t('studio.eventChanged')}</span>
+            <span><strong>{commitSummary.upsertInfra}</strong>{t('studio.infraChanged')}</span>
+            <span><strong>{commitSummary.removeInfra}</strong>{t('studio.infraRemoved')}</span>
+            <span><strong>{commitSummary.upsertRoutes}</strong>{t('studio.routesChanged')}</span>
+            <span><strong>{commitSummary.removeRoutes}</strong>{t('studio.routesRemoved')}</span>
+          </div>
+        </div>
         {message ? <p className="studio-message">{message}</p> : null}
         <div className="studio-tools">
-          <button type="button" className="studio-btn studio-btn--primary" disabled={saving} onClick={onSave}>
-            {saving ? t('studio.saving') : dirty ? t('studio.saveDraft') : t('studio.saved')}
+          <button type="button" className="studio-btn studio-btn--primary" disabled={saving || (!dirty && hasCommit) || commitSummary.total === 0} onClick={onSave}>
+            {saving ? t('studio.saving') : hasCommit ? t('studio.updateCommit') : t('studio.createCommit')}
           </button>
+          <button type="button" className="studio-btn" disabled={!dirty || saving} onClick={onDiscard}>{t('studio.discardLocal')}</button>
           <button type="button" className="studio-btn" disabled={!canSubmit || saving} onClick={onSubmit}>
             {t('studio.submit')}
           </button>
