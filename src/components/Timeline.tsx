@@ -6,20 +6,18 @@ type TimelineProps = {
 }
 
 function markOffset(dates: string[], date: string) {
-  const min = Date.parse(dates[0] ?? date)
-  const max = Date.parse(dates[dates.length - 1] ?? date)
-  if (max === min) {
+  if (dates.length < 2) {
     return 0
   }
-  return ((Date.parse(date) - min) / (max - min)) * 100
+  return (Math.max(0, dates.indexOf(date)) / (dates.length - 1)) * 100
 }
 
-function nearestDate(dates: string[], timestamp: number): string {
-  return dates.reduce((best, item) =>
-    Math.abs(Date.parse(item) - timestamp) < Math.abs(Date.parse(best) - timestamp)
-      ? item
+function nearestIndex(dates: string[], date: string): number {
+  return dates.reduce((best, item, index) =>
+    Math.abs(Date.parse(item) - Date.parse(date)) < Math.abs(Date.parse(dates[best]!) - Date.parse(date))
+      ? index
       : best,
-  )
+  0)
 }
 
 export function Timeline({ dates, date, onDateChange, embedded = false }: TimelineProps) {
@@ -28,9 +26,8 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
     return null
   }
 
-  const min = Date.parse(dates[0] ?? date)
-  const max = Date.parse(dates[dates.length - 1] ?? date)
-  const labelledDates = visibleYearLabels(dates, date)
+  const selectedIndex = nearestIndex(dates, date)
+  const labelledDates = visibleYearLabels(dates, dates[selectedIndex] ?? date)
 
   return (
     <div className={embedded ? 'timeline is-embedded' : 'timeline'}>
@@ -44,15 +41,16 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
         <input
           className="timeline__slider"
           type="range"
-          min={min}
-          max={max}
-          value={Date.parse(date)}
-          onChange={(event) => onDateChange(nearestDate(dates, Number(event.target.value)))}
+          min={0}
+          max={dates.length - 1}
+          step={1}
+          value={selectedIndex}
+          onChange={(event) => onDateChange(dates[Number(event.target.value)] ?? date)}
           aria-label={t('timeline')}
           aria-valuetext={date}
         />
         <ol className="timeline__marks">
-          {dates.map((item) => (
+          {dates.map((item, index) => (
             <li
               key={item}
               className="timeline__mark"
@@ -61,7 +59,7 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
               <button
                 type="button"
                 className="timeline__tick"
-                aria-current={item === date ? 'true' : undefined}
+                aria-current={index === selectedIndex ? 'true' : undefined}
                 aria-label={item}
                 onClick={() => onDateChange(item)}
               >
