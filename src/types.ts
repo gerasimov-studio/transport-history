@@ -178,6 +178,7 @@ export type RouteEntity = {
 export type NetworkState = {
   city?: string
   date: string
+  dates?: string[]
   infra: InfraEntity[]
   routes: RouteEntity[]
   chronicles: Snapshot[]

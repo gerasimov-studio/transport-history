@@ -62,6 +62,21 @@ input {
   color: var(--muted);
 }
 
+.map-error {
+  position: absolute;
+  z-index: 1200;
+  left: 50%;
+  top: 18px;
+  max-width: min(520px, calc(100vw - 32px));
+  margin: 0;
+  padding: 8px 12px;
+  transform: translateX(-50%);
+  border: 1px solid rgba(190, 120, 90, 0.75);
+  background: rgba(31, 37, 43, 0.94);
+  color: var(--text-strong);
+  font-size: 12px;
+}
+
 .map-stage {
   position: absolute;
   inset: 0;

@@ -54,7 +54,7 @@ export function ViewerPage() {
     () => (catalog && city ? snapshotsForCity(catalog, city.id) : []),
     [catalog, city],
   )
-  const dates = useMemo(() => {
+  const catalogDates = useMemo(() => {
     if (catalog?.dates?.length) {
       return catalog.dates
     }
@@ -62,25 +62,19 @@ export function ViewerPage() {
     return snapshotDateList.length ? snapshotDateList : [today]
   }, [catalog, citySnapshots])
   const selectedDate = useMemo(() => {
-    if (dates.length === 0) {
-      return null
-    }
-    if (date && dates.includes(date)) {
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return date
     }
-    if (date) {
-      return nearestDate(dates, date)
-    }
-    return dates[0] ?? null
-  }, [dates, date])
+    return catalogDates.length ? nearestDate(catalogDates, today) : null
+  }, [catalogDates, date])
+  const { state, error: stateError } = useViewportState(viewport, selectedDate, workspaceId)
+  const dates = state?.dates?.length ? state.dates : catalogDates
   const previousDate = useMemo(() => {
     if (!selectedDate) {
       return null
     }
-    const index = dates.indexOf(selectedDate)
-    return index > 0 ? (dates[index - 1] ?? null) : null
+    return dates.filter((item) => item < selectedDate).at(-1) ?? null
   }, [dates, selectedDate])
-  const { state, error: stateError } = useViewportState(viewport, selectedDate, workspaceId)
   const { state: previous } = useViewportState(viewport, previousDate, workspaceId)
   const activeSnapshots = useMemo(
     () =>
@@ -150,9 +144,8 @@ export function ViewerPage() {
   }, [baseFeatures, diff, modes, previous, showChanges])
   const detailedView = (viewport?.zoom ?? initialLinkedStart?.zoom ?? mapStart.zoom) >= 11
 
-  const error = catalogError ?? stateError
-  if (error) {
-    return <p className="app-status">{error}</p>
+  if (catalogError) {
+    return <p className="app-status">{catalogError}</p>
   }
 
   if (!catalog || !city) {
@@ -169,6 +162,7 @@ export function ViewerPage() {
         highlight={showChanges}
         onViewportChange={handleViewportChange}
       />
+      {stateError ? <p className="map-error" role="status">{stateError}</p> : null}
       <header className="brand">
         <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
         <Link className="brand__account" to="/account">{user?.username ?? t('account.signInOrRegister')}</Link>
@@ -239,7 +233,7 @@ export function ViewerPage() {
         ) : null}
       </div>
       {detailedView && selectedDate ? (
-        <Timeline dates={dates} date={selectedDate} onDateChange={(next) => {
+        <Timeline dates={[...new Set([...dates, selectedDate])].sort()} date={selectedDate} onDateChange={(next) => {
           setDate(next)
           setSearchParams((current) => {
             const params = new URLSearchParams(current)

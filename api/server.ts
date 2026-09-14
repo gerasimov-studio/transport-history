@@ -346,7 +346,7 @@ async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail
       [date, bounds.west, bounds.south, bounds.east, bounds.north],
     )
     return {
-      scope: 'viewport', bounds, zoom, date, infra: [], routes: [], chronicles: [], features: [],
+      scope: 'viewport', bounds, zoom, date, dates: [], infra: [], routes: [], chronicles: [], features: [],
       places: places.rows.map((place) => ({
         id: place.id, name: place.name, center: [place.lat, place.lng], modes: place.modes ?? [],
       })),
@@ -396,10 +396,30 @@ async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail
       }
     }
   }
-  const scopes = [...new Set([...result.rows.map((row) => row.source_scope), 'world'])]
+  const scopeResult = await pool.query<{ source_scope: string }>(
+    `SELECT DISTINCT source_scope
+     FROM network_infra
+     WHERE ST_Intersects(geom, ST_MakeEnvelope($1, $2, $3, $4, 4326))`,
+    [bounds.west, bounds.south, bounds.east, bounds.north],
+  )
+  const localScopes = scopeResult.rows.map((row) => row.source_scope)
+  const scopes = [...new Set([...localScopes, 'world'])]
   const chronicles = []
+  const dates = new Set<string>()
   for (const scope of scopes) {
-    chronicles.push(...projectEvents(await loadEvents(scope), date).chronicles.values())
+    const events = await loadEvents(scope)
+    chronicles.push(...projectEvents(events, date).chronicles.values())
+    if (scope === 'world') continue
+    const complete = projectEvents(events)
+    for (const item of complete.chronicles.values()) dates.add(item.date)
+    for (const item of complete.infra.values()) {
+      if (item.since) dates.add(item.since)
+      if (item.until) dates.add(item.until)
+    }
+    for (const item of complete.routes.values()) {
+      if (item.since) dates.add(item.since)
+      if (item.until) dates.add(item.until)
+    }
   }
 
   const state = { infra, routes, chronicles: new Map(chronicles.map((item) => [item.id, item])) }
@@ -408,6 +428,7 @@ async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail
     bounds,
     zoom,
     date,
+    dates: [...dates].sort(),
     infra: [...infra.values()],
     routes: [...routes.values()],
     chronicles: chronicles.sort((left, right) => left.date.localeCompare(right.date)),
