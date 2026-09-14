@@ -68,6 +68,7 @@ type StudioPanelProps = {
   selectedInfraId: string | null
   selectedRouteId: string | null
   tool: DrawTool
+  routeLegType: 'wire' | 'autonomous'
   drawNumber: string
   trackForm: TrackForm
   nodeKind: NodeKind
@@ -81,6 +82,7 @@ type StudioPanelProps = {
   saving: boolean
   message: string | null
   onTool: (tool: DrawTool) => void
+  onRouteLegType: (value: 'wire' | 'autonomous') => void
   onDrawNumber: (value: string) => void
   onTrackForm: (value: TrackForm) => void
   onNodeKind: (value: NodeKind) => void
@@ -118,6 +120,7 @@ export function StudioPanel({
   selectedInfraId,
   selectedRouteId,
   tool,
+  routeLegType,
   drawNumber,
   trackForm,
   nodeKind,
@@ -131,6 +134,7 @@ export function StudioPanel({
   saving,
   message,
   onTool,
+  onRouteLegType,
   onDrawNumber,
   onTrackForm,
   onNodeKind,
@@ -172,7 +176,7 @@ export function StudioPanel({
     ]),
   ]
   const selectedSegments = selectedRoute
-    ? selectedRoute.segmentIds
+    ? (selectedRoute.legs?.flatMap((leg) => leg.type === 'wire' ? leg.segmentIds : []) ?? selectedRoute.segmentIds)
         .map((id) => infra.find((entity) => entity.id === id))
         .filter((entity): entity is InfraEntity => Boolean(entity))
     : []
@@ -501,6 +505,16 @@ export function StudioPanel({
                     : t('studio.hintSelect')}{' '}
               {t('studio.hintClose')}
             </p>
+            {draft.mode === 'trolleybus' && selectedRoute ? (
+              <div className="studio-tools" role="group" aria-label={t('studio.propulsion')}>
+                <button type="button" className={`studio-btn${routeLegType === 'wire' ? ' studio-btn--primary' : ''}`} onClick={() => onRouteLegType('wire')}>
+                  {t('studio.underWire')}
+                </button>
+                <button type="button" className={`studio-btn${routeLegType === 'autonomous' ? ' studio-btn--primary' : ''}`} onClick={() => onRouteLegType('autonomous')}>
+                  {t('studio.autonomous')}
+                </button>
+              </div>
+            ) : null}
             <ul className="studio-list studio-list--features">
               {infra.map((entity) => (
                 <li key={entity.id}>

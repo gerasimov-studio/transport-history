@@ -138,6 +138,7 @@ function TrackLine({
   const isNode = feature.properties.kind === 'node'
   const isRoute = feature.properties.layer === 'route'
   const isTunnel = feature.properties.grade === 'tunnel'
+  const isAutonomous = feature.properties.propulsion === 'autonomous'
   const form = feature.properties.trackForm
   const paint = linePaint(feature.properties.color, form, muted, selected, isTunnel, accent, zoom, emphasis)
   const positions = coordinates.map(([lng, lat]) => [lat, lng] as [number, number])
@@ -245,7 +246,7 @@ function TrackLine({
           color: paint.color,
           weight: paint.weight,
           opacity: paint.opacity,
-          dashArray: paint.dashArray,
+          dashArray: isAutonomous ? '18 10' : paint.dashArray,
           lineCap: 'round',
           lineJoin: 'round',
         }}

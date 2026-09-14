@@ -164,6 +164,14 @@ async function syncSpatialProjection(sourceScope: string) {
       )
     }
     for (const route of state.routes.values()) {
+      const wireSegmentIds = route.legs?.flatMap((leg) => leg.type === 'wire' ? leg.segmentIds : []) ?? []
+      const autonomousLines = route.legs?.flatMap((leg) => leg.type === 'autonomous' && leg.geometry.coordinates.length >= 2
+        ? [leg.geometry.coordinates] : []) ?? []
+      const routeGeometry = autonomousLines.length === 1
+        ? { type: 'LineString', coordinates: autonomousLines[0] }
+        : autonomousLines.length > 1
+          ? { type: 'MultiLineString', coordinates: autonomousLines }
+          : route.geometry
       await client.query(
         `INSERT INTO network_routes
            (id, source_scope, mode, valid_from, valid_to, segment_ids, geom, payload)
@@ -177,8 +185,8 @@ async function syncSpatialProjection(sourceScope: string) {
           route.mode,
           route.since ?? null,
           route.until ?? null,
-          route.segmentIds,
-          route.geometry ? JSON.stringify(route.geometry) : null,
+          [...new Set([...route.segmentIds, ...wireSegmentIds])],
+          routeGeometry ? JSON.stringify(routeGeometry) : null,
           JSON.stringify(route),
         ],
       )
@@ -610,6 +618,20 @@ function validatedRoutes(input: unknown, mode: TransportMode, fallbackSince: str
         throw new Error(`route ${index}: geometry`)
       }
     }
+    const legs = mode === 'trolleybus' && Array.isArray(entity.legs)
+      ? entity.legs.map((leg, legIndex) => {
+          if (leg.type === 'wire' && Array.isArray(leg.segmentIds)) {
+            return { type: 'wire' as const, segmentIds: leg.segmentIds.filter((id): id is string => typeof id === 'string') }
+          }
+          if (leg.type === 'autonomous' && leg.geometry?.type === 'LineString' &&
+            Array.isArray(leg.geometry.coordinates) &&
+            leg.geometry.coordinates.every((point) => Array.isArray(point) && point.length === 2 &&
+              point.every((value) => typeof value === 'number' && Number.isFinite(value)))) {
+            return { type: 'autonomous' as const, geometry: leg.geometry }
+          }
+          throw new Error(`route ${index}: leg ${legIndex}`)
+        })
+      : undefined
     const since = asDate(entity.since) ?? fallbackSince
     const until = asDate(entity.until)
     if (until && until < since) {
@@ -623,6 +645,7 @@ function validatedRoutes(input: unknown, mode: TransportMode, fallbackSince: str
       color: entity.color?.trim() || '#c45c26',
       segmentIds,
       geometry: road ? geometry : undefined,
+      legs,
       since,
       until,
     }

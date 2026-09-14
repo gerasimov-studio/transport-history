@@ -99,5 +99,5 @@ function fingerprintInfra(entity: InfraEntity): string {
 }
 
 function fingerprintRoute(entity: RouteEntity): string {
-  return JSON.stringify([entity.number, entity.name, entity.color, entity.segmentIds, entity.since, entity.until])
+  return JSON.stringify([entity.number, entity.name, entity.color, entity.segmentIds, entity.geometry, entity.legs, entity.since, entity.until])
 }

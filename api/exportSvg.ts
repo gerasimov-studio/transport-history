@@ -63,7 +63,7 @@ export async function buildMapSvg(
     const scale = strokeScale(zoom)
     const opacity = isRoute ? 1 : form === 'double' ? 0.45 : 0.5
     const strokeWidth = Math.max(1.15, (form === 'double' ? 5 : form === 'single_oneway' ? 3.5 : 3) * scale)
-    const dash = feature.properties.grade === 'tunnel' ? '10 8' : form === 'single_oneway' ? '12 8' : form === 'single_both' ? '10 5 2 5' : ''
+    const dash = feature.properties.propulsion === 'autonomous' ? '18 10' : feature.properties.grade === 'tunnel' ? '10 8' : form === 'single_oneway' ? '12 8' : form === 'single_both' ? '10 5 2 5' : ''
     if (feature.geometry.type === 'Point') {
       const [cx, cy] = point(feature.geometry.coordinates).split(',')
       shapes.push(`<circle cx="${cx}" cy="${cy}" r="3" fill="${color}" stroke="#fff" stroke-width="1"/>`)

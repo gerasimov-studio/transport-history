@@ -91,9 +91,23 @@ export function normalizeRoute(entity: RouteEntity): RouteEntity {
     color: entity.color,
     segmentIds: entity.segmentIds,
     geometry: entity.mode === 'bus' ? entity.geometry : undefined,
+    legs: entity.mode === 'trolleybus' ? normalizeRouteLegs(entity.legs) : undefined,
     since,
     until: until && since && until < since ? since : until,
   }
+}
+
+function normalizeRouteLegs(legs: RouteEntity['legs']): RouteEntity['legs'] {
+  if (!Array.isArray(legs)) return undefined
+  return legs.flatMap((leg) => {
+    if (leg.type === 'wire' && Array.isArray(leg.segmentIds)) {
+      return [{ type: 'wire' as const, segmentIds: leg.segmentIds.filter((id) => typeof id === 'string') }]
+    }
+    if (leg.type === 'autonomous' && leg.geometry?.type === 'LineString') {
+      return [{ type: 'autonomous' as const, geometry: leg.geometry }]
+    }
+    return []
+  })
 }
 
 export function normalizeInfra(entity: InfraEntity, fallbackWay: TransportWay = 'rail'): InfraEntity {
@@ -149,6 +163,10 @@ export type RouteEntity = {
   color: string
   segmentIds: string[]
   geometry?: { type: 'LineString'; coordinates: [number, number][] }
+  legs?: (
+    | { type: 'wire'; segmentIds: string[] }
+    | { type: 'autonomous'; geometry: { type: 'LineString'; coordinates: [number, number][] } }
+  )[]
   since?: string
   until?: string
 }
@@ -283,6 +301,27 @@ export function renderFeatures(
     if (date && !infraAliveAt(route, date)) {
       continue
     }
+    if (route.legs?.length) {
+      for (const leg of route.legs) {
+        if (leg.type === 'autonomous' && leg.geometry.coordinates.length >= 2) {
+          features.push({
+            type: 'Feature',
+            properties: {
+              kind: 'track', mode: route.mode, lineId: route.id, number: route.number,
+              name: route.name, color: route.color, trackForm: 'single_both', layer: 'route',
+              way: 'road', propulsion: 'autonomous', since: route.since, until: route.until,
+            },
+            geometry: leg.geometry,
+          })
+        }
+        if (leg.type === 'wire') {
+          for (const segmentId of leg.segmentIds) {
+            pushRouteSegment(features, state, route, segmentId, date)
+          }
+        }
+      }
+      continue
+    }
     if (route.geometry && route.geometry.coordinates.length >= 2) {
       features.push({
         type: 'Feature',
@@ -296,38 +335,28 @@ export function renderFeatures(
       continue
     }
     for (const segmentId of route.segmentIds) {
-      const segment = state.infra.get(segmentId)
-      if (!segment || segment.kind !== 'track') {
-        continue
-      }
-      if (date && !infraAliveAt(segment, date)) {
-        continue
-      }
-      features.push({
-        type: 'Feature',
-        properties: {
-          kind: 'track',
-          mode: route.mode,
-          lineId: route.id,
-          number: route.number,
-          name: route.name,
-          color: route.color,
-          trackForm: segment.trackForm,
-          layer: 'route',
-          infraId: segment.id,
-          way: segment.way,
-          gauge: segment.gauge,
-          grade: segment.grade,
-          level: segment.level,
-          since: route.since,
-          until: route.until,
-        },
-        geometry: segment.geometry,
-      })
+      pushRouteSegment(features, state, route, segmentId, date)
     }
   }
 
   return features
+}
+
+function pushRouteSegment(
+  features: NetworkFeature[], state: ProjectedState, route: RouteEntity, segmentId: string, date?: string,
+) {
+  const segment = state.infra.get(segmentId)
+  if (!segment || segment.kind !== 'track' || (date && !infraAliveAt(segment, date))) return
+  features.push({
+    type: 'Feature', geometry: segment.geometry,
+    properties: {
+      kind: 'track', mode: route.mode, lineId: route.id, number: route.number,
+      name: route.name, color: route.color, trackForm: segment.trackForm, layer: 'route',
+      infraId: segment.id, way: segment.way, gauge: segment.gauge, grade: segment.grade,
+      level: segment.level, propulsion: route.mode === 'trolleybus' ? 'wire' : undefined,
+      since: route.since, until: route.until,
+    },
+  })
 }
 
 export function infraFeature(entity: InfraEntity): NetworkFeature {

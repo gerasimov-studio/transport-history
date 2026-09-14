@@ -36,10 +36,7 @@ export function routeRibbons(features: NetworkFeature[]): RouteRibbon[] {
     if (feature.properties.layer !== 'route' || feature.properties.kind !== 'track') {
       continue
     }
-    const id = feature.properties.infraId
-    if (!id) {
-      continue
-    }
+    const id = feature.properties.infraId ?? `${feature.properties.lineId}:${feature.properties.propulsion ?? 'free'}`
     const parts =
       feature.geometry.type === 'LineString'
         ? [feature.geometry.coordinates]

@@ -7,10 +7,12 @@ if (!databaseUrl) throw new Error('DATABASE_URL is required')
 type Point = [number, number]
 type Wire = { id: number; coordinates: Point[] }
 type Route = { ref: string; name: string; wayIds: number[] }
+type LineString = { type: 'LineString'; coordinates: Point[] }
 type Event = { type: string; date: string; payload: Record<string, unknown> }
 
 const wires = (JSON.parse(readFileSync(new URL('../db/seed/balakovo-trolley-wire-osm.json', import.meta.url), 'utf8')) as { ways: Wire[] }).ways
 const routes = (JSON.parse(readFileSync(new URL('../db/seed/balakovo-trolley-routes-osm.json', import.meta.url), 'utf8')) as { routes: Route[] }).routes
+const route12Autonomous = JSON.parse(readFileSync(new URL('../db/seed/balakovo-route-12-autonomous.json', import.meta.url), 'utf8')) as LineString
 const pool = new pg.Pool({ connectionString: databaseUrl })
 const actor = 'seed:balakovo-trolleybus-history-v1'
 const city = 'balakovo'
@@ -40,6 +42,19 @@ for (const route of routes) {
     memberships.push(route.ref)
     routesByWire.set(wayId, memberships)
   }
+}
+
+const routeFive = routes.find((route) => route.ref === '5')
+if (routeFive) {
+  add('route.upsert', '2024-09-01', {
+    id: 'balakovo-trolleybus-12-mixed', mode: 'trolleybus', number: '12',
+    name: '7-й микрорайон — МСЧ-156 · кольцевой', color: '#2e7d4f',
+    segmentIds: [], since: '2024-09-01',
+    legs: [
+      { type: 'wire', segmentIds: routeFive.wayIds.slice(0, 62).map(infraId) },
+      { type: 'autonomous', geometry: route12Autonomous },
+    ],
+  })
 }
 
 chronicle('1967-11-03', 'Первый балаковский троллейбус', 'Первый троллейбус прошёл по линии «1-й микрорайон — комбинат химволокна» 3 ноября 1967 года. Регулярное пассажирское движение началось 18 ноября. Историческая трасса показана приблизительно по сохранившемуся транспортному коридору.')

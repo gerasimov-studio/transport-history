@@ -130,6 +130,7 @@ export type NetworkProperties = {
   level?: number
   since?: string
   until?: string
+  propulsion?: 'wire' | 'autonomous'
 }
 
 export type NetworkFeature = {
@@ -163,6 +164,10 @@ export type InfraEntity = {
   geometry: NetworkFeature['geometry']
 }
 
+export type RouteLeg =
+  | { type: 'wire'; segmentIds: string[] }
+  | { type: 'autonomous'; geometry: { type: 'LineString'; coordinates: [number, number][] } }
+
 export type RouteEntity = {
   id: string
   mode: TransportMode
@@ -171,6 +176,7 @@ export type RouteEntity = {
   color: string
   segmentIds: string[]
   geometry?: { type: 'LineString'; coordinates: [number, number][] }
+  legs?: RouteLeg[]
   since?: string
   until?: string
 }

@@ -47,6 +47,18 @@ function newRouteId(mode: string) {
   return `route:${mode}:${crypto.randomUUID()}`
 }
 
+function trolleyLegs(route: RouteEntity) {
+  return route.legs ?? (route.segmentIds.length ? [{ type: 'wire' as const, segmentIds: route.segmentIds }] : [])
+}
+
+function lastLegPoint(route: RouteEntity, infra: InfraEntity[]): [number, number] | undefined {
+  const leg = trolleyLegs(route).at(-1)
+  if (!leg) return undefined
+  if (leg.type === 'autonomous') return leg.geometry.coordinates.at(-1)
+  const segment = infra.find((item) => item.id === leg.segmentIds.at(-1))
+  return segment?.geometry.type === 'LineString' ? segment.geometry.coordinates.at(-1) : undefined
+}
+
 function railProfile(way: TransportWay, grade: TrackGrade, level: number, portal = false) {
   if (way !== 'rail' || portal) {
     return { grade: undefined, level: undefined }
@@ -121,6 +133,24 @@ function infraToFeature(entity: InfraEntity): DraftFeature {
 }
 
 function routeToFeatures(route: RouteEntity, infra: InfraEntity[]): DraftFeature[] {
+  if (route.legs?.length) {
+    return route.legs.flatMap((leg, legIndex) => {
+      if (leg.type === 'autonomous') {
+        return leg.geometry.coordinates.length >= 2 ? [{
+          key: `${route.id}:autonomous:${legIndex}`,
+          type: 'Feature' as const,
+          properties: {
+            kind: 'track' as const, mode: route.mode, lineId: route.id, number: route.number,
+            name: route.name, color: route.color, trackForm: 'single_both' as const,
+            layer: 'route' as const, way: 'road' as const, propulsion: 'autonomous' as const,
+            since: route.since, until: route.until,
+          },
+          geometry: leg.geometry,
+        }] : []
+      }
+      return leg.segmentIds.flatMap((segmentId) => routeSegmentFeature(route, segmentId, infra, 'wire'))
+    })
+  }
   if (route.geometry && route.geometry.coordinates.length >= 2) {
     return [{
       key: route.id,
@@ -132,7 +162,12 @@ function routeToFeatures(route: RouteEntity, infra: InfraEntity[]): DraftFeature
       geometry: route.geometry,
     }]
   }
-  return route.segmentIds.flatMap((segmentId) => {
+  return route.segmentIds.flatMap((segmentId) => routeSegmentFeature(route, segmentId, infra))
+}
+
+function routeSegmentFeature(
+  route: RouteEntity, segmentId: string, infra: InfraEntity[], propulsion?: 'wire',
+): DraftFeature[] {
     const segment = infra.find((entity) => entity.id === segmentId)
     if (!segment || segment.kind !== 'track') {
       return []
@@ -157,11 +192,11 @@ function routeToFeatures(route: RouteEntity, infra: InfraEntity[]): DraftFeature
           level: infraGrade(segment) === 'tunnel' ? infraLevel(segment) : undefined,
           since: route.since,
           until: route.until,
+          propulsion,
         },
         geometry: segment.geometry,
       },
     ]
-  })
 }
 
 export function EditorPage() {
@@ -176,6 +211,7 @@ export function EditorPage() {
   const [selectedInfraId, setSelectedInfraId] = useState<string | null>(null)
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
   const [tool, setTool] = useState<DrawTool>('select')
+  const [routeLegType, setRouteLegType] = useState<'wire' | 'autonomous'>('wire')
   const [drawNumber, setDrawNumber] = useState('1')
   const [trackForm, setTrackForm] = useState<TrackForm>('single_both')
   const [nodeKind, setNodeKind] = useState<NodeKind>('junction')
@@ -356,11 +392,22 @@ export function EditorPage() {
     if (!draft) {
       return
     }
-    if (draft.layer === 'route' && draft.mode === 'bus' && tool === 'route' && selectedRouteId) {
+    if (draft.layer === 'route' && (draft.mode === 'bus' || (draft.mode === 'trolleybus' && routeLegType === 'autonomous')) && tool === 'route' && selectedRouteId) {
       updateRoute(selectedRouteId, (route) => ({
         ...route,
-        segmentIds: [],
-        geometry: { type: 'LineString', coordinates: [...(route.geometry?.coordinates ?? []), [lng, lat]] },
+        ...(route.mode === 'bus'
+          ? { segmentIds: [], geometry: { type: 'LineString' as const, coordinates: [...(route.geometry?.coordinates ?? []), [lng, lat] as [number, number]] } }
+          : (() => {
+              const legs = trolleyLegs(route).slice()
+              const last = legs.at(-1)
+              if (last?.type === 'autonomous') {
+                legs[legs.length - 1] = { ...last, geometry: { type: 'LineString', coordinates: [...last.geometry.coordinates, [lng, lat]] } }
+              } else {
+                const start = lastLegPoint(route, draft.infra)
+                legs.push({ type: 'autonomous', geometry: { type: 'LineString', coordinates: [...(start ? [start] : []), [lng, lat]] } })
+              }
+              return { segmentIds: [], geometry: undefined, legs }
+            })()),
       }))
       return
     }
@@ -482,7 +529,8 @@ export function EditorPage() {
       setMessage(t('studio.trolleyWireMismatch'))
       return
     }
-    const alreadyOnRoute = draft.routes.some((route) => route.id === selectedRouteId && route.segmentIds.includes(infraId))
+    const alreadyOnRoute = draft.routes.some((route) => route.id === selectedRouteId &&
+      (route.segmentIds.includes(infraId) || route.legs?.some((leg) => leg.type === 'wire' && leg.segmentIds.includes(infraId))))
     const route = draft.routes.find((item) => item.id === selectedRouteId)
     if (!alreadyOnRoute && !infraAliveAt(segment, draft.date)) {
       setMessage(`${t('studio.inactiveTrack')} ${draft.date}`)
@@ -515,6 +563,16 @@ export function EditorPage() {
             return route
           }
           const exists = route.segmentIds.includes(infraId)
+          if (route.mode === 'trolleybus') {
+            const legs = trolleyLegs(route).map((leg) => leg.type === 'wire'
+              ? { ...leg, segmentIds: leg.segmentIds.filter((id) => id !== infraId) } : leg)
+            if (!alreadyOnRoute) {
+              const last = legs.at(-1)
+              if (last?.type === 'wire') last.segmentIds.push(infraId)
+              else legs.push({ type: 'wire', segmentIds: [infraId] })
+            }
+            return { ...route, segmentIds: [], geometry: undefined, legs }
+          }
           return {
             ...route,
             segmentIds: exists
@@ -654,8 +712,8 @@ export function EditorPage() {
         city={city}
         features={mapFeatures}
         selectedKey={draft.layer === 'infra' ? selectedInfraId : selectedRouteId}
-        tool={draft.layer === 'route' && draft.mode === 'bus' ? 'route' : draft.layer === 'infra' ? tool : 'select'}
-        enableVertices={draft.layer === 'infra' || (draft.layer === 'route' && draft.mode === 'bus')}
+        tool={draft.layer === 'route' && (draft.mode === 'bus' || (draft.mode === 'trolleybus' && routeLegType === 'autonomous')) ? 'route' : draft.layer === 'infra' ? tool : 'select'}
+        enableVertices={draft.layer === 'infra' || (draft.layer === 'route' && (draft.mode === 'bus' || (draft.mode === 'trolleybus' && routeLegType === 'autonomous')))}
         muteInfra={draft.layer === 'route'}
         lockTurns={lockTurns}
         snapWay={draft.way}
@@ -674,15 +732,18 @@ export function EditorPage() {
             : undefined
         }
         previousPoint={
-          draft.layer === 'route' && draft.mode === 'bus'
-            ? draft.routes.find((route) => route.id === selectedRouteId)?.geometry?.coordinates.at(-1)
+          draft.layer === 'route' && (draft.mode === 'bus' || (draft.mode === 'trolleybus' && routeLegType === 'autonomous'))
+            ? (() => {
+                const route = draft.routes.find((item) => item.id === selectedRouteId)
+                return route?.mode === 'trolleybus' ? lastLegPoint(route, draft.infra) : route?.geometry?.coordinates.at(-1)
+              })()
             : selectedInfra?.geometry.type === 'LineString'
             ? selectedInfra.geometry.coordinates.at(-1)
             : undefined
         }
         onSelect={(feature) => {
           if (draft.layer === 'route') {
-            if (draft.mode !== 'bus') {
+            if (draft.mode !== 'bus' && routeLegType === 'wire') {
               const infraId = feature.properties.infraId
               if (infraId && draft.infra.some((entity) => entity.id === infraId && entity.kind === 'track' && infraWay(entity) === draft.way)) {
                 toggleSegment(infraId)
@@ -726,6 +787,21 @@ export function EditorPage() {
             })
             return
           }
+          if (draft.layer === 'route' && draft.mode === 'trolleybus' && key.includes(':autonomous:')) {
+            const marker = key.lastIndexOf(':autonomous:')
+            const routeId = key.slice(0, marker)
+            const legIndex = Number(key.slice(marker + ':autonomous:'.length))
+            updateRoute(routeId, (route) => ({
+              ...route,
+              legs: trolleyLegs(route).map((leg, currentIndex) => {
+                if (currentIndex !== legIndex || leg.type !== 'autonomous') return leg
+                const coordinates = leg.geometry.coordinates.slice()
+                coordinates[index] = coord
+                return { ...leg, geometry: { type: 'LineString', coordinates } }
+              }),
+            }))
+            return
+          }
           updateInfra(key, (entity) => {
             if (entity.geometry.type !== 'LineString') {
               return entity
@@ -750,6 +826,7 @@ export function EditorPage() {
         selectedInfraId={selectedInfraId}
         selectedRouteId={selectedRouteId}
         tool={tool}
+        routeLegType={routeLegType}
         drawNumber={drawNumber}
         trackForm={trackForm}
         nodeKind={nodeKind}
@@ -763,6 +840,10 @@ export function EditorPage() {
         saving={saving}
         message={message}
         onTool={setTool}
+        onRouteLegType={(value) => {
+          setRouteLegType(value)
+          setTool(value === 'autonomous' ? 'route' : 'select')
+        }}
         onDrawNumber={setDrawNumber}
         onTrackForm={setTrackForm}
         onNodeKind={setNodeKind}
@@ -861,6 +942,9 @@ export function EditorPage() {
                   routes: current.routes.map((route) => ({
                     ...route,
                     segmentIds: route.segmentIds.filter((id) => id !== selectedInfraId),
+                    legs: route.legs?.map((leg) => leg.type === 'wire'
+                      ? { ...leg, segmentIds: leg.segmentIds.filter((id) => id !== selectedInfraId) }
+                      : leg),
                   })),
                 }
               : current,
@@ -874,6 +958,18 @@ export function EditorPage() {
               : route)
             return
           }
+          if (draft.layer === 'route' && draft.mode === 'trolleybus' && routeLegType === 'autonomous' && selectedRouteId) {
+            updateRoute(selectedRouteId, (route) => {
+              const legs = trolleyLegs(route).slice()
+              const last = legs.at(-1)
+              if (last?.type !== 'autonomous') return route
+              const coordinates = last.geometry.coordinates.slice(0, -1)
+              if (coordinates.length < 2) legs.pop()
+              else legs[legs.length - 1] = { ...last, geometry: { type: 'LineString', coordinates } }
+              return { ...route, legs }
+            })
+            return
+          }
           if (!selectedInfra || selectedInfra.geometry.type !== 'LineString') {
             return
           }
@@ -884,6 +980,9 @@ export function EditorPage() {
               routes: draft.routes.map((route) => ({
                 ...route,
                 segmentIds: route.segmentIds.filter((id) => id !== selectedInfra.id),
+                legs: route.legs?.map((leg) => leg.type === 'wire'
+                  ? { ...leg, segmentIds: leg.segmentIds.filter((id) => id !== selectedInfra.id) }
+                  : leg),
               })),
             })
             setSelectedInfraId(null)
@@ -900,6 +999,15 @@ export function EditorPage() {
             updateRoute(selectedRouteId, (route) => route.geometry
               ? { ...route, geometry: { type: 'LineString', coordinates: [...route.geometry.coordinates].reverse() } }
               : route)
+            return
+          }
+          if (draft.layer === 'route' && draft.mode === 'trolleybus' && routeLegType === 'autonomous' && selectedRouteId) {
+            updateRoute(selectedRouteId, (route) => ({
+              ...route,
+              legs: trolleyLegs(route).map((leg, index, legs) => index === legs.length - 1 && leg.type === 'autonomous'
+                ? { ...leg, geometry: { type: 'LineString', coordinates: [...leg.geometry.coordinates].reverse() } }
+                : leg),
+            }))
             return
           }
           if (!selectedInfra || selectedInfra.geometry.type !== 'LineString') {
@@ -953,12 +1061,17 @@ export function EditorPage() {
             color: MODE_COLORS[draft.mode],
             segmentIds: [],
             geometry: draft.mode === 'bus' ? { type: 'LineString', coordinates: [] } : undefined,
+            legs: draft.mode === 'trolleybus' ? [{ type: 'wire', segmentIds: [] }] : undefined,
             since: drawSince,
             until: drawUntil || undefined,
           }
           setDraft((current) => (current ? { ...current, routes: [...current.routes, route] } : current))
           setSelectedRouteId(id)
           if (draft.mode === 'bus') setTool('route')
+          if (draft.mode === 'trolleybus') {
+            setRouteLegType('wire')
+            setTool('select')
+          }
         }}
         onDeleteRoute={() => {
           if (!selectedRouteId) {
