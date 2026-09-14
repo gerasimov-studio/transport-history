@@ -30,6 +30,7 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
 
   const min = Date.parse(dates[0] ?? date)
   const max = Date.parse(dates[dates.length - 1] ?? date)
+  const labelledDates = visibleYearLabels(dates, date)
 
   return (
     <div className={embedded ? 'timeline is-embedded' : 'timeline'}>
@@ -61,10 +62,11 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
                 type="button"
                 className="timeline__tick"
                 aria-current={item === date ? 'true' : undefined}
+                aria-label={item}
                 onClick={() => onDateChange(item)}
               >
                 <span className="timeline__dot" />
-                <span className="timeline__tick-year">{item.slice(0, 4)}</span>
+                {labelledDates.has(item) ? <span className="timeline__tick-year">{item.slice(0, 4)}</span> : null}
               </button>
             </li>
           ))}
@@ -72,5 +74,27 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
       </div>
     </div>
   )
+}
+
+function visibleYearLabels(dates: string[], selected: string): Set<string> {
+  const byYear = new Map<string, string>()
+  for (const item of dates) {
+    const year = item.slice(0, 4)
+    if (!byYear.has(year) || item === selected) byYear.set(year, item)
+  }
+  const unique = [...byYear.values()]
+  const priority = [selected, unique[0], unique.at(-1), ...unique].filter(
+    (item): item is string => Boolean(item),
+  )
+  const labelled = new Set<string>()
+  const offsets: number[] = []
+  for (const item of priority) {
+    if (labelled.has(item)) continue
+    const offset = markOffset(dates, item)
+    if (offsets.some((accepted) => Math.abs(accepted - offset) < 4.5)) continue
+    labelled.add(item)
+    offsets.push(offset)
+  }
+  return labelled
 }
 import { useI18n } from '../i18n'
