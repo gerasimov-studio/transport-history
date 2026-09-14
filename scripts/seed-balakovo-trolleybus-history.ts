@@ -13,6 +13,7 @@ type Event = { type: string; date: string; payload: Record<string, unknown> }
 const wires = (JSON.parse(readFileSync(new URL('../db/seed/balakovo-trolley-wire-osm.json', import.meta.url), 'utf8')) as { ways: Wire[] }).ways
 const routes = (JSON.parse(readFileSync(new URL('../db/seed/balakovo-trolley-routes-osm.json', import.meta.url), 'utf8')) as { routes: Route[] }).routes
 const route12Autonomous = JSON.parse(readFileSync(new URL('../db/seed/balakovo-route-12-autonomous.json', import.meta.url), 'utf8')) as LineString
+const nppWire = JSON.parse(readFileSync(new URL('../db/seed/balakovo-npp-trolley-wire-reconstructed.json', import.meta.url), 'utf8')) as LineString
 const pool = new pg.Pool({ connectionString: databaseUrl })
 const actor = 'seed:balakovo-trolleybus-history-v1'
 const city = 'balakovo'
@@ -22,6 +23,7 @@ const chronicle = (date: string, title: string, summary: string) => add('chronic
   id: `balakovo-trolleybus-${date}`, city, mode: 'trolleybus', date, title, summary, network: '',
 })
 const infraId = (id: number) => `balakovo-trolley-wire-osm-${id}`
+const nppInfraId = 'balakovo-trolley-wire-npp-reconstructed'
 const routeSince: Record<string, string> = {
   '2': '1968-01-01',
   '4': '1983-11-16',
@@ -35,6 +37,7 @@ const routeUntil: Record<string, string | undefined> = {
   '5а': '2024-08-31',
 }
 const firstLineWayIds = new Set(routes.find((route) => route.ref === '2')?.wayIds.slice(0, 10) ?? [])
+const nppConnectionWayIds = new Set([34693341])
 const routesByWire = new Map<number, string[]>()
 for (const route of routes) {
   for (const wayId of route.wayIds) {
@@ -63,12 +66,13 @@ chronicle('1982-12-22', 'Линия к Балаковской АЭС', 'Откр
 chronicle('1983-11-16', 'Маршрут к Балаковорезинотехнике', 'Открыт маршрут №4 между 8-м микрорайоном и производственным объединением «Балаковорезинотехника».')
 chronicle('1993-01-01', 'Второе троллейбусное депо', 'На другом конце быстро растущей сети открылось второе депо, рассчитанное на 50 машин.')
 chronicle('2000-01-01', 'Линия к новому вокзалу', 'Введена в эксплуатацию новая троллейбусная линия к железнодорожному вокзалу.')
+chronicle('2003-04-30', 'Прекращение регулярного движения к АЭС', 'Регулярное движение маршрута №3 к Балаковской АЭС прекратилось весной 2003 года. Контактная сеть на загородном участке сохранялась и позднее использовалась отдельными заказными рейсами.')
 chronicle('2004-01-01', 'Закрытие второго депо', 'Из-за финансовых проблем предприятие закрыло троллейбусное депо №2.')
 chronicle('2024-09-01', 'Новые кольцевые маршруты', 'Начали работу маршруты №12 и №12А с троллейбусами увеличенного автономного хода. Точная карта контактной сети и маршрутных коридоров ниже основана на актуальной разметке OpenStreetMap.')
 
 for (const wire of wires) {
   const memberships = routesByWire.get(wire.id) ?? []
-  const since = firstLineWayIds.has(wire.id) ? '1967-11-03' : memberships
+  const since = firstLineWayIds.has(wire.id) ? '1967-11-03' : nppConnectionWayIds.has(wire.id) ? '1982-12-22' : memberships
     .map((ref) => routeSince[ref])
     .filter((date): date is string => Boolean(date))
     .sort()[0] ?? '2024-09-01'
@@ -78,6 +82,17 @@ for (const wire of wires) {
     geometry: { type: 'LineString', coordinates: wire.coordinates },
   })
 }
+add('infra.upsert', '1982-12-22', {
+  id: nppInfraId, kind: 'track', way: 'road', mode: 'trolleybus', since: '1982-12-22',
+  name: 'Контактная сеть к Балаковской АЭС · реконструкция', color: '#2e7d4f',
+  trackForm: 'single_both', geometry: nppWire,
+  reconstruction: true,
+})
+add('route.upsert', '1982-12-22', {
+  id: 'balakovo-trolleybus-3-historical', mode: 'trolleybus', number: '3',
+  name: '8А микрорайон — Балаковская АЭС · реконструкция', color: '#2e7d4f',
+  segmentIds: [infraId(34693341), nppInfraId], since: '1982-12-22', until: '2003-04-30',
+})
 for (const route of routes) {
   add('route.upsert', '2024-09-01', {
     id: `balakovo-trolleybus-${route.ref}-osm`, mode: 'trolleybus', number: route.ref,
