@@ -160,7 +160,14 @@ export function ViewerPage() {
 
   return (
     <div className="app">
-      <MapStage city={city} start={initialLinkedStart ?? mapStart} features={features} highlight={showChanges} onViewportChange={handleViewportChange} />
+      <MapStage
+        city={city}
+        start={initialLinkedStart ?? mapStart}
+        features={features}
+        places={(state?.places ?? []).filter((place) => place.modes.some((mode) => modes[mode]))}
+        highlight={showChanges}
+        onViewportChange={handleViewportChange}
+      />
       <header className="brand">
         <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
         <Link className="brand__account" to="/account">{user?.username ?? t('account.signInOrRegister')}</Link>

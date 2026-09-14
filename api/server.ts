@@ -334,6 +334,24 @@ function entityInBounds(entity: { geometry?: { coordinates: unknown } }, bounds:
 }
 
 async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail = false, workspaceId = 'main') {
+  if (zoom < 11 && !fullDetail) {
+    const places = await pool.query<{ id: string; name: string; lat: number; lng: number; modes: TransportMode[] }>(
+      `SELECT city.id, city.name, city.lat, city.lng,
+              array_agg(DISTINCT event.payload->>'mode')
+                FILTER (WHERE event.payload->>'mode' IN ('metro', 'tram', 'trolleybus', 'bus')) AS modes
+       FROM cities city
+       JOIN events event ON event.city_id = city.id AND event.occurred_on <= $1
+       WHERE city.lng BETWEEN $2 AND $4 AND city.lat BETWEEN $3 AND $5
+       GROUP BY city.id, city.name, city.lat, city.lng`,
+      [date, bounds.west, bounds.south, bounds.east, bounds.north],
+    )
+    return {
+      scope: 'viewport', bounds, zoom, date, infra: [], routes: [], chronicles: [], features: [],
+      places: places.rows.map((place) => ({
+        id: place.id, name: place.name, center: [place.lat, place.lng], modes: place.modes ?? [],
+      })),
+    }
+  }
   const kindClause = fullDetail ? '' : zoom < 14 ? "AND kind = 'track'" : zoom < 15 ? "AND kind <> 'node'" : ''
   const result = await pool.query<{ payload: InfraEntity; source_scope: string }>(
     `SELECT payload, source_scope
@@ -394,6 +412,7 @@ async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail
     routes: [...routes.values()],
     chronicles: chronicles.sort((left, right) => left.date.localeCompare(right.date)),
     features: renderFeatures(state, undefined, date),
+    places: [],
   }
 }
 
@@ -839,7 +858,7 @@ const server = createServer(async (req, res) => {
           return
         }
       }
-      const state = await mapPayload(bounds, date, zoom, true, workspaceId)
+      const state = await mapPayload(bounds, date, zoom, zoom >= 11, workspaceId)
       const enabledModes = new Set((url.searchParams.get('modes') ?? 'metro,tram,trolleybus,bus').split(',').filter((mode) => modes.has(mode as TransportMode)))
       const visibleRoutes = url.searchParams.has('routes')
         ? new Set((url.searchParams.get('routes') ?? '').split(',').filter(Boolean))
@@ -849,7 +868,8 @@ const server = createServer(async (req, res) => {
         : feature.properties.way === 'rail'
           ? enabledModes.has('metro') || enabledModes.has('tram')
           : enabledModes.has('trolleybus') || enabledModes.has('bus'))
-      const svg = await buildMapSvg(exportFeatures, bounds, zoom, width, height, url.searchParams.get('basemap') === '1')
+      const exportPlaces = (state.places ?? []).filter((place) => place.modes.some((mode) => enabledModes.has(mode)))
+      const svg = await buildMapSvg(exportFeatures, bounds, zoom, width, height, url.searchParams.get('basemap') === '1', exportPlaces)
       res.writeHead(200, {
         'content-type': 'image/svg+xml; charset=utf-8',
         'content-disposition': `attachment; filename="transport-${date}.svg"`,

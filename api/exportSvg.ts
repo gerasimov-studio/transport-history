@@ -22,6 +22,7 @@ export async function buildMapSvg(
   width: number,
   height: number,
   basemap: boolean,
+  places: Array<{ id: string; name: string; center: [number, number] }> = [],
 ) {
   const [left, top] = worldPixel(bounds.west, bounds.north, zoom)
   const [right, bottom] = worldPixel(bounds.east, bounds.south, zoom)
@@ -77,10 +78,18 @@ export async function buildMapSvg(
     }
   }
   const labels = zoom >= 12 ? routeLabels(features, projectedPoint, zoom) : []
+  const placeShapes = places.map((place) => {
+    const [cx, cy] = projectedPoint([place.center[1], place.center[0]])
+    const label = zoom >= 5
+      ? `<text x="${(cx + 10).toFixed(2)}" y="${(cy + 4).toFixed(2)}" font-family="sans-serif" font-size="12" font-weight="600" fill="#1c1814">${escape(place.name)}</text>`
+      : ''
+    return `<circle cx="${cx.toFixed(2)}" cy="${cy.toFixed(2)}" r="${zoom < 5 ? 5 : 7}" fill="#d7c4a3" fill-opacity="0.95" stroke="#1c1814" stroke-width="2"/>${label}`
+  })
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   ${basemap ? `<rect width="100%" height="100%" fill="#e5e2dc"/>${tiles.join('')}` : ''}
   <g>${shapes.join('')}</g>
+  <g>${placeShapes.join('')}</g>
   <g>${labels.join('')}</g>
   ${basemap ? `<text x="${width - 8}" y="${height - 8}" text-anchor="end" font-family="sans-serif" font-size="10" fill="#333">© OpenStreetMap contributors</text>` : ''}
 </svg>`

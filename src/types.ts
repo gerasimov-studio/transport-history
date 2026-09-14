@@ -182,6 +182,14 @@ export type NetworkState = {
   routes: RouteEntity[]
   chronicles: Snapshot[]
   features: NetworkFeature[]
+  places?: MapPlace[]
+}
+
+export type MapPlace = {
+  id: string
+  name: string
+  center: [number, number]
+  modes: TransportMode[]
 }
 
 export type MapViewport = {
