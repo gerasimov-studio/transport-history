@@ -44,6 +44,7 @@ const nodeKinds = new Set(['junction', 'terminus', 'loop', 'wye', 'crossover', '
 const nodeLineKinds = new Set(['loop', 'wye', 'crossover'])
 
 const pool = new pg.Pool({ connectionString: databaseUrl })
+const locationContextCache = new Map<string, { bounds?: [[number, number], [number, number]] }>()
 
 type SnapshotInput = {
   city?: string
@@ -357,28 +358,56 @@ function entityInBounds(entity: { geometry?: { coordinates: unknown } }, bounds:
 async function mapPayload(bounds: Bounds, date: string, zoom: number, fullDetail = false, workspaceId = 'main') {
   if (zoom < 11 && !fullDetail) {
     const places = await pool.query<{ id: string; name: string; lat: number; lng: number; modes: TransportMode[] }>(
-      `SELECT system.id, system.name, system.lat, system.lng,
-              array_agg(DISTINCT event.payload->>'mode')
-                FILTER (WHERE event.payload->>'mode' IN ('metro', 'tram', 'trolleybus', 'bus')) AS modes
+      `WITH active_modes AS (
+         SELECT source_scope, array_agg(DISTINCT mode) AS modes
+         FROM (
+           SELECT source_scope, mode
+           FROM network_routes
+           WHERE (valid_from IS NULL OR valid_from <= $1)
+             AND (valid_to IS NULL OR valid_to >= $1)
+           UNION
+           SELECT source_scope, payload->>'mode' AS mode
+           FROM network_infra
+           WHERE payload->>'mode' IN ('metro', 'tram', 'trolleybus', 'bus')
+             AND (valid_from IS NULL OR valid_from <= $1)
+             AND (valid_to IS NULL OR valid_to >= $1)
+         ) current_network
+         WHERE mode IN ('metro', 'tram', 'trolleybus', 'bus')
+         GROUP BY source_scope
+       )
+       SELECT system.id, system.name, system.lat, system.lng, active_modes.modes
        FROM transport_systems system
-       JOIN events event ON event.scope_id = system.id AND event.occurred_on <= $1
+       JOIN active_modes ON active_modes.source_scope = system.id
        WHERE system.lng BETWEEN $2 AND $4 AND system.lat BETWEEN $3 AND $5
          AND (system.valid_from IS NULL OR system.valid_from <= $1)
          AND (system.valid_to IS NULL OR system.valid_to >= $1)
-       GROUP BY system.id, system.name, system.lat, system.lng
        UNION ALL
-       SELECT city.id, city.name, city.lat, city.lng,
-              array_agg(DISTINCT event.payload->>'mode')
-                FILTER (WHERE event.payload->>'mode' IN ('metro', 'tram', 'trolleybus', 'bus')) AS modes
+       SELECT city.id, city.name, city.lat, city.lng, active_modes.modes
        FROM cities city
-       JOIN events event ON event.city_id = city.id AND event.occurred_on <= $1
+       JOIN active_modes ON active_modes.source_scope = city.id
        WHERE city.lng BETWEEN $2 AND $4 AND city.lat BETWEEN $3 AND $5
          AND NOT EXISTS (SELECT 1 FROM transport_system_localities locality WHERE locality.locality_id = city.id)
-       GROUP BY city.id, city.name, city.lat, city.lng`,
+      `,
       [date, bounds.west, bounds.south, bounds.east, bounds.north],
     )
+    const overviewDates = await pool.query<{ date: string }>(
+      `SELECT DISTINCT date::text AS date FROM (
+         SELECT system.valid_from AS date FROM transport_systems system
+          WHERE system.lng BETWEEN $1 AND $3 AND system.lat BETWEEN $2 AND $4
+         UNION ALL
+         SELECT system.valid_to AS date FROM transport_systems system
+          WHERE system.lng BETWEEN $1 AND $3 AND system.lat BETWEEN $2 AND $4
+         UNION ALL
+         SELECT min(event.occurred_on) AS date FROM cities city
+          JOIN events event ON event.city_id = city.id
+          WHERE city.lng BETWEEN $1 AND $3 AND city.lat BETWEEN $2 AND $4
+            AND NOT EXISTS (SELECT 1 FROM transport_system_localities locality WHERE locality.locality_id = city.id)
+          GROUP BY city.id
+       ) lifecycle WHERE date IS NOT NULL ORDER BY date`,
+      [bounds.west, bounds.south, bounds.east, bounds.north],
+    )
     return {
-      scope: 'viewport', bounds, zoom, date, dates: [], events: [], infra: [], routes: [], chronicles: [], features: [],
+      scope: 'viewport', bounds, zoom, date, dates: overviewDates.rows.map((row) => row.date), events: [], infra: [], routes: [], chronicles: [], features: [],
       places: places.rows.map((place) => ({
         id: place.id, name: place.name, center: [place.lat, place.lng], modes: place.modes ?? [],
       })),
@@ -862,6 +891,37 @@ const server = createServer(async (req, res) => {
     if (method === 'GET' && path === '/api/health') {
       await pool.query('SELECT 1')
       send(res, 200, { ok: true })
+      return
+    }
+
+    if (method === 'GET' && path === '/api/location-context') {
+      const lat = Number(url.searchParams.get('lat'))
+      const lng = Number(url.searchParams.get('lng'))
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        send(res, 400, { error: 'lat, lng' })
+        return
+      }
+      const key = `${lat.toFixed(2)},${lng.toFixed(2)}`
+      const cached = locationContextCache.get(key)
+      if (cached) {
+        send(res, 200, cached)
+        return
+      }
+      try {
+        const reverseUrl = new URL('https://nominatim.openstreetmap.org/reverse')
+        reverseUrl.search = new URLSearchParams({ format: 'jsonv2', lat: String(lat), lon: String(lng), zoom: '3' }).toString()
+        const response = await fetch(reverseUrl, { headers: { 'user-agent': 'transport-history/1.0 (transporthistory.net)' } })
+        if (!response.ok) throw new Error(`reverse ${response.status}`)
+        const result = await response.json() as { boundingbox?: string[] }
+        const values = result.boundingbox?.map(Number)
+        const context = values?.length === 4 && values.every(Number.isFinite)
+          ? { bounds: [[values[0]!, values[2]!], [values[1]!, values[3]!]] as [[number, number], [number, number]] }
+          : {}
+        locationContextCache.set(key, context)
+        send(res, 200, context)
+      } catch {
+        send(res, 200, {})
+      }
       return
     }
 

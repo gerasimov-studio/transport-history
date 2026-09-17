@@ -10,7 +10,7 @@ import { useCatalog } from '../data/useCatalog'
 import { useViewportState } from '../data/useViewportState'
 import { useSession } from '../data/useSession'
 import { diffNetwork, hasDiff } from '../map/diffNetwork'
-import { useVisitorLocation } from '../map/useVisitorLocation'
+import { rememberMapView, useVisitorLocation } from '../map/useVisitorLocation'
 import { useI18n } from '../i18n'
 import { infraAliveAt, infraWay, wayEnabled, type MapViewport, type TransportMode } from '../types'
 import { Link } from 'react-router-dom'
@@ -40,6 +40,9 @@ export function ViewerPage() {
   const [exportBasemap, setExportBasemap] = useState(true)
   const handleViewportChange = useCallback((next: MapViewport) => {
     setViewport(next)
+    if (!(next.zoom === 2 && Math.abs(next.center[0] - 20) < 0.01 && Math.abs(next.center[1]) < 0.01)) {
+      rememberMapView({ center: next.center, zoom: next.zoom })
+    }
     setSearchParams((current) => {
       const params = new URLSearchParams(current)
       params.set('lat', next.center[0].toFixed(6))
@@ -251,7 +254,7 @@ export function ViewerPage() {
           </div>
         ) : null}
       </div>
-      {detailedView && selectedDate ? (
+      {selectedDate ? (
         <Timeline dates={eventDates.length ? eventDates : dates} date={selectedDate} onDateChange={(next) => {
           setDate(next)
           setSearchParams((current) => {

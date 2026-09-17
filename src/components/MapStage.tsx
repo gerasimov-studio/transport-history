@@ -1,10 +1,10 @@
 import { useEffect, useMemo } from 'react'
-import { CircleMarker, MapContainer, Tooltip, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Tooltip, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { TrackShape } from '../map/TrackShape'
 import { featureAtZoom, featureInView, useMapView } from '../map/lod'
 import { routeRibbons } from '../map/segmentLabels'
-import type { CatalogCity, MapPlace, MapViewport, NetworkFeature } from '../types'
+import { MODE_COLORS, type CatalogCity, type MapPlace, type MapViewport, type NetworkFeature } from '../types'
 import { Basemap } from './Basemap'
 import { RouteShields } from './RouteShields'
 import type { MapStart } from '../map/useVisitorLocation'
@@ -54,8 +54,9 @@ function StartView({ start }: { start: MapStart }) {
   const [lat, lng] = start.center
   const { zoom } = start
   useEffect(() => {
-    map.setView([lat, lng], zoom)
-  }, [lat, lng, map, zoom])
+    if (start.bounds) map.fitBounds(start.bounds, { padding: [24, 24], maxZoom: 10 })
+    else map.setView([lat, lng], zoom)
+  }, [lat, lng, map, start.bounds, zoom])
   return null
 }
 
@@ -95,15 +96,14 @@ function ViewerNetwork({
   return (
     <>
       {view.zoom < 11 ? places.map((place) => (
-        <CircleMarker
+        <Marker
           key={place.id}
-          center={place.center}
-          radius={view.zoom < 5 ? 5 : 7}
-          pathOptions={{ color: '#1c1814', weight: 2, fillColor: '#d7c4a3', fillOpacity: 0.95 }}
+          position={place.center}
+          icon={placeIcon(place, view.zoom)}
           eventHandlers={{ click: () => map.flyTo(place.center, 11) }}
         >
           <Tooltip permanent={view.zoom >= 5} direction="right" offset={[8, 0]}>{place.name}</Tooltip>
-        </CircleMarker>
+        </Marker>
       )) : null}
       {visible.map((feature, index) => (
         <TrackShape
@@ -122,4 +122,18 @@ function ViewerNetwork({
       <RouteShields ribbons={ribbons} />
     </>
   )
+}
+
+function placeIcon(place: MapPlace, zoom: number) {
+  const colors = place.modes.map((mode) => MODE_COLORS[mode])
+  const size = zoom < 5 ? 12 : 16
+  const step = 100 / Math.max(colors.length, 1)
+  const gradient = colors.length
+    ? `conic-gradient(${colors.map((color, index) => `${color} ${index * step}% ${(index + 1) * step}%`).join(',')})`
+    : '#d7c4a3'
+  return L.divIcon({
+    className: 'system-marker-shell',
+    html: `<span class="system-marker" style="width:${size}px;height:${size}px;background:${gradient}"></span>`,
+    iconSize: [size, size], iconAnchor: [size / 2, size / 2],
+  })
 }
