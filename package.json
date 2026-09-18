@@ -12,7 +12,6 @@
     "data:sarajevo-trolleybus": "node --experimental-strip-types --no-warnings scripts/seed-sarajevo-trolleybus-history.ts",
     "data:balakovo-trolleybus": "node --experimental-strip-types --no-warnings scripts/seed-balakovo-trolleybus-history.ts",
     "data:baku-metro": "node --experimental-strip-types --no-warnings scripts/seed-baku-metro-history.ts",
-    "data:regional-systems": "node --experimental-strip-types --no-warnings scripts/seed-regional-system-scenarios.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },
