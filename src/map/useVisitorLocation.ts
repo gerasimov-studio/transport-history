@@ -8,6 +8,8 @@ export type MapStart = {
 
 const WORLD_VIEW: MapStart = { center: [20, 0], zoom: 2 }
 const STORAGE_KEY = 'transport-history:last-view'
+const DATE_STORAGE_KEY = 'transport-history:last-date'
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 function storedView(): MapStart | null {
   try {
@@ -21,6 +23,18 @@ function storedView(): MapStart | null {
 
 export function rememberMapView(view: MapStart) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ center: view.center, zoom: view.zoom })) } catch { /* storage is optional */ }
+}
+
+export function storedTimelineDate(): string | null {
+  try {
+    const value = localStorage.getItem(DATE_STORAGE_KEY)
+    return value && ISO_DATE.test(value) ? value : null
+  } catch { return null }
+}
+
+export function rememberTimelineDate(date: string) {
+  if (!ISO_DATE.test(date)) return
+  try { localStorage.setItem(DATE_STORAGE_KEY, date) } catch { /* storage is optional */ }
 }
 
 export function useVisitorLocation() {

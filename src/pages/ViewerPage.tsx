@@ -5,12 +5,12 @@ import { MapStage, type ViewerFeature } from '../components/MapStage'
 import { ModesPanel } from '../components/ModesPanel'
 import { RoutesPanel } from '../components/RoutesPanel'
 import { Timeline } from '../components/Timeline'
-import { currentSnapshots, formatSnapshotDate, nearestDate, snapshotDates, snapshotsForCity } from '../data/snapshots'
+import { currentSnapshots, formatSnapshotDate, snapshotDates, snapshotsForCity } from '../data/snapshots'
 import { useCatalog } from '../data/useCatalog'
 import { useViewportState } from '../data/useViewportState'
 import { useSession } from '../data/useSession'
 import { diffNetwork, hasDiff } from '../map/diffNetwork'
-import { rememberMapView, useVisitorLocation } from '../map/useVisitorLocation'
+import { rememberMapView, rememberTimelineDate, storedTimelineDate, useVisitorLocation } from '../map/useVisitorLocation'
 import { useI18n } from '../i18n'
 import { infraAliveAt, infraWay, wayEnabled, type MapViewport, type TransportMode } from '../types'
 import { Link } from 'react-router-dom'
@@ -32,7 +32,7 @@ export function ViewerPage() {
   const workspaceId = searchParams.get('workspace') || 'main'
   const [initialLinkedStart] = useState(() => mapStartFromParams(searchParams))
   const { catalog, error: catalogError } = useCatalog({ loadNetworks: false })
-  const [date, setDate] = useState<string | null>(() => searchParams.get('date'))
+  const [date, setDate] = useState<string>(() => searchParams.get('date') ?? storedTimelineDate() ?? today)
   const [modes, setModes] = useState(initialModes)
   const [hiddenRoutes, setHiddenRoutes] = useState<Set<string>>(new Set())
   const [showChanges, setShowChanges] = useState(false)
@@ -68,10 +68,14 @@ export function ViewerPage() {
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return date
     }
-    return catalogDates.length ? nearestDate(catalogDates, today) : null
-  }, [catalogDates, date])
+    return today
+  }, [date])
   const { state, error: stateError } = useViewportState(viewport, selectedDate, workspaceId)
   const dates = state?.dates?.length ? state.dates : catalogDates
+  const timelineDates = useMemo(
+    () => [...new Set([...dates.filter((item) => item <= today), today])].sort(),
+    [dates],
+  )
   const timelineEvents = useMemo(() => state?.events ?? [], [state?.events])
   const eventDates = useMemo(() => snapshotDates(timelineEvents), [timelineEvents])
   const previousDate = useMemo(() => {
@@ -152,6 +156,15 @@ export function ViewerPage() {
     return [...ghosts, ...current]
   }, [baseFeatures, diff, modes, previous, showChanges])
   const detailedView = (viewport?.zoom ?? initialLinkedStart?.zoom ?? mapStart.zoom) >= 11
+  const selectDate = useCallback((next: string) => {
+    setDate(next)
+    rememberTimelineDate(next)
+    setSearchParams((current) => {
+      const params = new URLSearchParams(current)
+      params.set('date', next)
+      return params
+    }, { replace: true })
+  }, [setSearchParams])
 
   if (catalogError) {
     return <p className="app-status">{catalogError}</p>
@@ -230,14 +243,7 @@ export function ViewerPage() {
           snapshots={activeSnapshots}
           events={timelineEvents}
           routeLabels={routeLabels}
-          onSelectDate={(next) => {
-            setDate(next)
-            setSearchParams((current) => {
-              const params = new URLSearchParams(current)
-              params.set('date', next)
-              return params
-            }, { replace: true })
-          }}
+          onSelectDate={selectDate}
         /> : null}
         {viewport && selectedDate ? (
           <div className="hud-panel export-panel">
@@ -255,14 +261,7 @@ export function ViewerPage() {
         ) : null}
       </div>
       {selectedDate ? (
-        <Timeline dates={eventDates.length ? eventDates : dates} date={selectedDate} onDateChange={(next) => {
-          setDate(next)
-          setSearchParams((current) => {
-            const params = new URLSearchParams(current)
-            params.set('date', next)
-            return params
-          }, { replace: true })
-        }} />
+        <Timeline dates={eventDates.length ? [...new Set([...eventDates.filter((item) => item <= today), today])].sort() : timelineDates} date={selectedDate} onDateChange={selectDate} />
       ) : null}
     </div>
   )
