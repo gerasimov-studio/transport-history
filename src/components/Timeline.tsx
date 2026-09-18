@@ -27,7 +27,7 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
   }
 
   const selectedIndex = nearestIndex(dates, date)
-  const labelledDates = visibleYearLabels(dates, dates[selectedIndex] ?? date)
+  const labelledDates = visibleYearLabels(dates)
 
   return (
     <div className={embedded ? 'timeline is-embedded' : 'timeline'}>
@@ -74,14 +74,14 @@ export function Timeline({ dates, date, onDateChange, embedded = false }: Timeli
   )
 }
 
-function visibleYearLabels(dates: string[], selected: string): Set<string> {
+function visibleYearLabels(dates: string[]): Set<string> {
   const byYear = new Map<string, string>()
   for (const item of dates) {
     const year = item.slice(0, 4)
-    if (!byYear.has(year) || item === selected) byYear.set(year, item)
+    if (!byYear.has(year)) byYear.set(year, item)
   }
   const unique = [...byYear.values()]
-  const priority = [selected, unique[0], unique.at(-1), ...unique].filter(
+  const priority = [unique[0], unique.at(-1), ...unique].filter(
     (item): item is string => Boolean(item),
   )
   const labelled = new Set<string>()
