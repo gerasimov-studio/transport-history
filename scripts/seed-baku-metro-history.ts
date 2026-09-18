@@ -49,14 +49,14 @@ const stations: Station[] = [
   { id: 'qara-qarayev', name: 'Qara Qarayev', since: '1972-11-06', point: [49.9339594, 40.4176118] },
   { id: 'neftchilar', name: 'Neftçilər', since: '1972-11-06', point: [49.9425681, 40.411155] },
   { id: 'nizami', name: 'Nizami', since: '1976-12-31', point: [49.8300187, 40.3793192] },
-  { id: 'bakmil', name: 'Bakmil', since: '1979-01-01', point: [49.879234, 40.4128725] },
+  { id: 'bakmil', name: 'Bakmil', since: '1979-03-28', point: [49.879234, 40.4128725] },
   { id: 'elmler', name: 'Elmlər Akademiyası', since: '1985-12-31', point: [49.8154836, 40.3751519] },
   { id: 'inshaatchilar', name: 'İnşaatçılar', since: '1985-12-31', point: [49.8023575, 40.3890935] },
   { id: '20-yanvar', name: '20 Yanvar', since: '1985-12-31', point: [49.8056, 40.4033] },
   { id: 'memar-ajami-green', name: 'Memar Əcəmi', since: '1985-12-31', point: [49.8124456, 40.4104823] },
   { id: 'xalqlar', name: 'Xalqlar Dostluğu', since: '1989-04-28', point: [49.9529864, 40.3968851] },
   { id: 'ahmadli', name: 'Əhmədli', since: '1989-04-28', point: [49.9539452, 40.3855583] },
-  { id: 'jafar-jabbarli', name: 'Cəfər Cabbarlı', since: '1993-01-01', point: [49.8489498, 40.379652] },
+  { id: 'jafar-jabbarli', name: 'Cəfər Cabbarlı', since: '1993-10-27', point: [49.8489498, 40.379652] },
   { id: 'hazi-aslanov', name: 'Həzi Aslanov', since: '2002-12-10', point: [49.9535736, 40.3730376] },
   { id: 'nasimi', name: 'Nəsimi', since: '2008-10-09', point: [49.82147, 40.42377] },
   { id: 'azadliq', name: 'Azadlıq prospekti', since: '2009-12-30', point: [49.8429264, 40.4259622] },
@@ -82,7 +82,7 @@ const route = (id: string, number: string, name: string, color: string, since: s
 })
 route('baku-metro-red', '1', 'Qırmızı xətt · İçərişəhər — Həzi Aslanov', '#d71920', '1967-11-06', red)
 route('baku-metro-khatai', '2X', 'Cəfər Cabbarlı — Xətai', '#159447', '1968-02-22', ['khatai-shuttle'])
-route('baku-metro-bakmil', '1B', 'İçərişəhər — Bakmil', '#d71920', '1979-01-01', ['red-west', 'shared-1967', 'bakmil'])
+route('baku-metro-bakmil', '1B', 'İçərişəhər — Bakmil', '#d71920', '1979-03-28', ['red-west', 'shared-1967', 'bakmil'])
 route('baku-metro-green', '2', 'Yaşıl xətt · Dərnəgül — Həzi Aslanov', '#159447', '1976-12-31', [...green, ...sharedEast])
 route('baku-metro-purple', '3', 'Bənövşəyi xətt · Xocəsən — 8 Noyabr', '#8d4b9b', '2016-04-19', ['purple-xocasan', 'purple-2016', 'purple-2021'])
 
@@ -91,8 +91,10 @@ chronicle('1968-02-22', 'Xətai qolu', '28 May yaxınlığındakı ayrılmadan X
 chronicle('1970-04-17', 'Ulduz stansiyası', 'Qırmızı xətt Nərimanovdan sənaye rayonuna — Ulduz stansiyasına uzadıldı.')
 chronicle('1972-11-06', 'Şərqə ilk böyük uzadılma', 'Koroğlu, Qara Qarayev və Neftçilər stansiyaları açıldı.')
 chronicle('1976-12-31', 'Yaşıl xəttin başlanğıcı', '28 Maydan Nizami stansiyasına yeni qol açıldı.')
+chronicle('1979-03-28', 'Bakmil stansiyası', 'Depo dayanacağı yenidən qurularaq Elektrozavod adı ilə yerüstü stansiya kimi açıldı; sonradan Bakmil adlandırıldı.')
 chronicle('1985-12-31', 'Yaşıl xətt Memar Əcəmiyə çatdı', 'Elmlər Akademiyası, İnşaatçılar, 20 Yanvar və Memar Əcəmi stansiyalarından ibarət 6,5 kilometrlik sahə istifadəyə verildi.')
 chronicle('1989-04-28', 'Əhmədliyə uzadılma', 'Xalqlar Dostluğu və Əhmədli stansiyaları açıldı.')
+chronicle('1993-10-27', 'Cəfər Cabbarlı stansiyası', 'Cəfər Cabbarlı stansiyasının ilk platforması açıldı və 28 May stansiyasına keçid istifadəyə verildi.')
 chronicle('2002-12-10', 'Həzi Aslanov', 'Qırmızı xəttin şərq sonluğu Həzi Aslanov stansiyasına çatdı.')
 chronicle('2008-10-09', 'Şimal sahəsinin inkişafı', 'Yaşıl xəttdə Nəsimi stansiyası açıldı.')
 chronicle('2009-12-30', 'Azadlıq prospekti', 'Yaşıl xətt Azadlıq prospekti stansiyasına uzadıldı.')
@@ -109,6 +111,14 @@ try {
     VALUES ($1,$2,$3,$4,$5,12,2,22) ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, aliases=EXCLUDED.aliases,
     lat=EXCLUDED.lat, lng=EXCLUDED.lng, zoom=EXCLUDED.zoom, min_zoom=EXCLUDED.min_zoom, max_zoom=EXCLUDED.max_zoom`,
   [city, 'Baku', ['Bakı', 'Баку'], 40.3953, 49.8666])
+  await client.query(`INSERT INTO transport_systems (id, name, aliases, lat, lng, zoom, valid_from)
+    VALUES ($1,$2,$3,$4,$5,12,$6) ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, aliases=EXCLUDED.aliases,
+    lat=EXCLUDED.lat, lng=EXCLUDED.lng, zoom=EXCLUDED.zoom, valid_from=EXCLUDED.valid_from`,
+  [city, 'Bakı Metro', ['Baku Metro', 'Бакинский метрополитен'], 40.3953, 49.8666, '1967-11-06'])
+  await client.query(`INSERT INTO transport_system_localities (system_id, locality_id, name, role, valid_from)
+    VALUES ($1,$1,$2,'core',$3) ON CONFLICT (system_id, locality_id) DO UPDATE SET
+    name=EXCLUDED.name, role=EXCLUDED.role, valid_from=EXCLUDED.valid_from`,
+  [city, 'Bakı', '1967-11-06'])
   await client.query('DELETE FROM events WHERE actor = $1', [actor])
   for (const event of events) await client.query(
     `INSERT INTO events (type, occurred_on, city_id, scope_id, actor, payload) VALUES ($1,$2,$3,$3,$4,$5::jsonb)`,
