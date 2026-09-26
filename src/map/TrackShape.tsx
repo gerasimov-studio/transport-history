@@ -430,6 +430,8 @@ function pointRadius(kind: string, nodeKind: NodeKind | undefined, selected: boo
     }
     return selected ? 8 : nodeKind === 'terminus' ? 7 : 6
   }
+  if (kind === 'station') return selected ? 8 : 6
+  if (kind === 'entrance') return selected ? 5 : 3
   return selected ? 6 : 4
 }
 
@@ -443,12 +445,20 @@ function pointFill(kind: string, nodeKind: NodeKind | undefined, color: string):
     }
     return '#f3eee6'
   }
+  if (kind === 'station') return color
+  if (kind === 'entrance') return '#f3eee6'
   return '#fff'
 }
 
 function pointTitle(feature: NetworkFeature, locale: Locale): string {
   if (feature.properties.kind === 'node' && feature.properties.nodeKind) {
     return `${domain.node(locale, feature.properties.nodeKind)} · ${feature.properties.name}`
+  }
+  if (feature.properties.kind === 'station') {
+    return `${locale === 'ru' ? 'Станция' : locale === 'sr' ? 'Stanica' : 'Station'} · ${feature.properties.name}`
+  }
+  if (feature.properties.kind === 'entrance') {
+    return `${locale === 'ru' ? 'Вход' : locale === 'sr' ? 'Ulaz' : 'Entrance'} · ${feature.properties.name}`
   }
   return feature.properties.name
 }

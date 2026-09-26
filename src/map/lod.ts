@@ -5,6 +5,7 @@ import type { CatalogCity, NetworkFeature } from '../types'
 
 export const NETWORK_MIN_ZOOM = 11
 export const STOPS_MIN_ZOOM = 14
+export const ENTRANCES_MIN_ZOOM = 16
 export const NODES_MIN_ZOOM = 15
 export const LABELS_MIN_ZOOM = 12
 export const CITY_RADIUS_M = 55_000
@@ -54,8 +55,11 @@ export function featureAtZoom(
   if (zoom < NETWORK_MIN_ZOOM && !reveal?.network) {
     return false
   }
-  if (feature.properties.kind === 'stop') {
+  if (feature.properties.kind === 'stop' || feature.properties.kind === 'station') {
     return Boolean(reveal?.stops) || zoom >= STOPS_MIN_ZOOM
+  }
+  if (feature.properties.kind === 'entrance') {
+    return Boolean(reveal?.stops) || zoom >= ENTRANCES_MIN_ZOOM
   }
   if (feature.properties.kind === 'node') {
     return Boolean(reveal?.nodes) || zoom >= NODES_MIN_ZOOM

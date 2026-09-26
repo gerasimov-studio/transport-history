@@ -68,7 +68,7 @@ const stations: Station[] = [
 ]
 
 for (const station of stations) add('infra.upsert', station.since, {
-  id: `baku-metro-station-${station.id}`, kind: 'stop', way: 'rail', mode: 'metro', gauge: 1520,
+  id: `baku-metro-station-${station.id}`, kind: 'station', way: 'rail', mode: 'metro', gauge: 1520,
   grade: station.id === 'bakmil' ? 'surface' : 'tunnel', level: station.id === 'bakmil' ? undefined : -1,
   since: station.since, name: station.name, color: '#d7c4a3', trackForm: 'double',
   geometry: { type: 'Point', coordinates: station.point },

@@ -14,6 +14,7 @@ import {
   defaultMode,
   gaugeColor,
   infraAliveAt,
+  isHeavyRail,
   infraGauge,
   infraGrade,
   infraLevel,
@@ -119,6 +120,8 @@ function infraToFeature(entity: InfraEntity): DraftFeature {
       color: entity.color,
       trackForm: entity.trackForm,
       nodeKind: entity.nodeKind,
+      facilityKind: entity.facilityKind,
+      stationId: entity.stationId,
       layer: 'infra',
       infraId: entity.id,
       way: infraWay(entity),
@@ -462,22 +465,38 @@ export function EditorPage() {
       return
     }
     if (tool === 'stop') {
-      const id = newInfraId(draft.way, 'stop')
+      const kind = isHeavyRail(draft.mode) ? 'station' : 'stop'
+      const id = newInfraId(draft.way, kind)
       const entity: InfraEntity = {
         id,
-        kind: 'stop',
+        kind,
         way: draft.way,
         mode: draft.mode,
         gauge: draft.way === 'rail' ? canonicalGauge(drawGauge) : undefined,
         ...railProfile(draft.way, drawGrade, drawLevel),
         since: drawSince,
         until: drawUntil || undefined,
-        name: t('studio.stop'),
+        name: t(kind === 'station' ? 'studio.station' : 'studio.stop'),
         color: MODE_COLORS[draft.mode],
         trackForm,
         geometry: { type: 'Point', coordinates: [lng, lat] },
       }
       setDraft((current) => (current ? { ...current, infra: [...current.infra, entity] } : current))
+      setSelectedInfraId(id)
+      return
+    }
+    if (tool === 'entrance') {
+      const selected = draft.infra.find((entity) => entity.id === selectedInfraId)
+      const stationId = selected?.kind === 'station' ? selected.id : selected?.stationId
+      if (!stationId || !isHeavyRail(draft.mode)) return
+      const id = newInfraId(draft.way, 'entrance')
+      const entity: InfraEntity = {
+        id, kind: 'entrance', stationId, way: draft.way, mode: draft.mode,
+        gauge: canonicalGauge(drawGauge), ...railProfile(draft.way, drawGrade, drawLevel),
+        since: drawSince, until: drawUntil || undefined, name: t('studio.entrance'),
+        color: MODE_COLORS[draft.mode], trackForm, geometry: { type: 'Point', coordinates: [lng, lat] },
+      }
+      setDraft((current) => current ? { ...current, infra: [...current.infra, entity] } : current)
       setSelectedInfraId(id)
       return
     }
@@ -990,16 +1009,22 @@ export function EditorPage() {
           if (!selectedInfraId) {
             return
           }
+          const removedIds = new Set([
+            selectedInfraId,
+            ...draft.infra
+              .filter((entity) => entity.kind === 'entrance' && entity.stationId === selectedInfraId)
+              .map((entity) => entity.id),
+          ])
           setDraft((current) =>
             current
               ? {
                   ...current,
-                  infra: current.infra.filter((entity) => entity.id !== selectedInfraId),
+                  infra: current.infra.filter((entity) => !removedIds.has(entity.id)),
                   routes: current.routes.map((route) => ({
                     ...route,
-                    segmentIds: route.segmentIds.filter((id) => id !== selectedInfraId),
+                    segmentIds: route.segmentIds.filter((id) => !removedIds.has(id)),
                     legs: route.legs?.map((leg) => leg.type === 'wire'
-                      ? { ...leg, segmentIds: leg.segmentIds.filter((id) => id !== selectedInfraId) }
+                      ? { ...leg, segmentIds: leg.segmentIds.filter((id) => !removedIds.has(id)) }
                       : leg),
                   })),
                 }

@@ -39,13 +39,14 @@ CREATE TABLE IF NOT EXISTS lines (
 CREATE TABLE IF NOT EXISTS features (
   id bigserial PRIMARY KEY,
   snapshot_id text NOT NULL REFERENCES snapshots (id) ON DELETE CASCADE,
-  kind text NOT NULL CHECK (kind IN ('track', 'stop', 'node', 'area')),
+  kind text NOT NULL CHECK (kind IN ('track', 'stop', 'station', 'entrance', 'node', 'area')),
   line_id text NOT NULL,
   name text NOT NULL,
   color text NOT NULL,
   track_form text NOT NULL DEFAULT 'double',
   node_kind text,
   facility_kind text,
+  station_id text,
   geom geometry(Geometry, 4326) NOT NULL
 );
 
@@ -54,10 +55,11 @@ CREATE INDEX IF NOT EXISTS features_line_idx ON features (line_id);
 CREATE INDEX IF NOT EXISTS features_geom_gix ON features USING GIST (geom);
 
 ALTER TABLE features DROP CONSTRAINT IF EXISTS features_kind_check;
-ALTER TABLE features ADD CONSTRAINT features_kind_check CHECK (kind IN ('track', 'stop', 'node', 'area'));
+ALTER TABLE features ADD CONSTRAINT features_kind_check CHECK (kind IN ('track', 'stop', 'station', 'entrance', 'node', 'area'));
 ALTER TABLE features ADD COLUMN IF NOT EXISTS track_form text NOT NULL DEFAULT 'double';
 ALTER TABLE features ADD COLUMN IF NOT EXISTS node_kind text;
 ALTER TABLE features ADD COLUMN IF NOT EXISTS facility_kind text;
+ALTER TABLE features ADD COLUMN IF NOT EXISTS station_id text;
 ALTER TABLE features DROP CONSTRAINT IF EXISTS features_track_form_check;
 ALTER TABLE features ADD CONSTRAINT features_track_form_check
   CHECK (track_form IN ('double', 'single_oneway', 'single_both'));

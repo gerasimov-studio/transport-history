@@ -57,6 +57,10 @@ export function collectSnapGraph(
       continue
     }
 
+    if (feature.properties.kind === 'stop' || feature.properties.kind === 'station' || feature.properties.kind === 'entrance') {
+      continue
+    }
+
     if (feature.geometry.type === 'Point') {
       vertices.push(feature.geometry.coordinates)
       endpoints.push(feature.geometry.coordinates)

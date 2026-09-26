@@ -9,7 +9,7 @@ import { infraAliveAt, periodsOverlap, sameGauge, type CatalogCity, type MapView
 import { Basemap } from '../../../components/Basemap'
 import { RouteShields } from '../../../components/RouteShields'
 
-export type DrawTool = 'select' | 'track' | 'stop' | 'node' | 'area' | 'route'
+export type DrawTool = 'select' | 'track' | 'stop' | 'entrance' | 'node' | 'area' | 'route'
 
 export type DraftFeature = NetworkFeature & { key: string }
 
@@ -181,7 +181,7 @@ function EditorNetwork({
       selected ||
       (featureAtZoom(feature, view.zoom, {
         network: true,
-        stops: tool === 'stop',
+        stops: tool === 'stop' || tool === 'entrance',
         nodes: tool === 'node',
       }) &&
         featureInView(feature, view.bounds))

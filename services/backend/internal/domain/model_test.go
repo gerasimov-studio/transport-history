@@ -87,3 +87,25 @@ func TestValidateInfraRejectsOpenDepotArea(t *testing.T) {
 		t.Fatal("expected open depot polygon to be rejected")
 	}
 }
+
+func TestValidateInfraAcceptsStationWithMultipleEntrances(t *testing.T) {
+	items := []json.RawMessage{
+		raw(`{"id":"central","kind":"station","mode":"metro","name":"Central","color":"#735f4b","geometry":{"type":"Point","coordinates":[1,2]}}`),
+		raw(`{"id":"central-north","kind":"entrance","stationId":"central","mode":"metro","name":"North entrance","color":"#735f4b","geometry":{"type":"Point","coordinates":[1.001,2.001]}}`),
+		raw(`{"id":"central-south","kind":"entrance","stationId":"central","mode":"metro","name":"South entrance","color":"#735f4b","geometry":{"type":"Point","coordinates":[0.999,1.999]}}`),
+	}
+	result, err := ValidateInfra(items, "rail", "2000-01-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result[1].StationID != "central" || result[2].StationID != "central" {
+		t.Fatalf("station links were lost: %#v", result)
+	}
+}
+
+func TestValidateInfraRejectsUnlinkedStationEntrance(t *testing.T) {
+	items := []json.RawMessage{raw(`{"id":"entrance","kind":"entrance","mode":"metro","name":"Entrance","color":"#735f4b","geometry":{"type":"Point","coordinates":[1,2]}}`)}
+	if _, err := ValidateInfra(items, "rail", "2000-01-01"); err == nil {
+		t.Fatal("expected entrance without stationId to be rejected")
+	}
+}

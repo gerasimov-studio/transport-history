@@ -38,6 +38,7 @@ type Infra struct {
 	TrackForm    string   `json:"trackForm"`
 	NodeKind     string   `json:"nodeKind,omitempty"`
 	FacilityKind string   `json:"facilityKind,omitempty"`
+	StationID    string   `json:"stationId,omitempty"`
 	Geometry     Geometry `json:"geometry"`
 }
 
@@ -95,6 +96,7 @@ type FeatureProperties struct {
 	TrackForm    string `json:"trackForm"`
 	NodeKind     string `json:"nodeKind,omitempty"`
 	FacilityKind string `json:"facilityKind,omitempty"`
+	StationID    string `json:"stationId,omitempty"`
 	Layer        string `json:"layer,omitempty"`
 	InfraID      string `json:"infraId,omitempty"`
 	Way          string `json:"way,omitempty"`
@@ -250,7 +252,7 @@ func Features(p Projection, date string) []Feature {
 				mode = "trolleybus"
 			}
 		}
-		out = append(out, Feature{Type: "Feature", Geometry: v.Geometry, Properties: FeatureProperties{Kind: v.Kind, Mode: mode, LineID: v.ID, Name: v.Name, Color: v.Color, TrackForm: v.TrackForm, NodeKind: v.NodeKind, FacilityKind: v.FacilityKind, Layer: "infra", InfraID: v.ID, Way: v.Way, Gauge: v.Gauge, Grade: v.Grade, Level: v.Level, Since: v.Since, Until: v.Until}})
+		out = append(out, Feature{Type: "Feature", Geometry: v.Geometry, Properties: FeatureProperties{Kind: v.Kind, Mode: mode, LineID: v.ID, Name: v.Name, Color: v.Color, TrackForm: v.TrackForm, NodeKind: v.NodeKind, FacilityKind: v.FacilityKind, StationID: v.StationID, Layer: "infra", InfraID: v.ID, Way: v.Way, Gauge: v.Gauge, Grade: v.Grade, Level: v.Level, Since: v.Since, Until: v.Until}})
 	}
 	for _, r := range p.Routes {
 		if date != "" && !Alive(r.Since, r.Until, date) {
@@ -385,7 +387,7 @@ func ValidateInfra(input []json.RawMessage, way, fallbackSince string) ([]Infra,
 		if v.ID == "" {
 			return nil, fmt.Errorf("infra %d: id", i)
 		}
-		if v.Kind != "track" && v.Kind != "stop" && v.Kind != "node" && v.Kind != "area" {
+		if v.Kind != "track" && v.Kind != "stop" && v.Kind != "station" && v.Kind != "entrance" && v.Kind != "node" && v.Kind != "area" {
 			return nil, fmt.Errorf("infra %d: kind", i)
 		}
 		if v.Geometry.Type == "" || len(v.Geometry.Coordinates) == 0 {
@@ -394,8 +396,17 @@ func ValidateInfra(input []json.RawMessage, way, fallbackSince string) ([]Infra,
 		if v.Kind == "track" && v.Geometry.Type != "LineString" && v.Geometry.Type != "MultiLineString" {
 			return nil, fmt.Errorf("infra %d: track geometry", i)
 		}
-		if v.Kind == "stop" && v.Geometry.Type != "Point" {
-			return nil, fmt.Errorf("infra %d: stop geometry", i)
+		if (v.Kind == "stop" || v.Kind == "station" || v.Kind == "entrance") && v.Geometry.Type != "Point" {
+			return nil, fmt.Errorf("infra %d: passenger geometry", i)
+		}
+		if v.Kind == "stop" && (v.Mode == "metro" || v.Mode == "railway") {
+			return nil, fmt.Errorf("infra %d: heavy rail stop", i)
+		}
+		if v.Kind == "station" && (v.Mode != "metro" && v.Mode != "railway") {
+			return nil, fmt.Errorf("infra %d: station mode", i)
+		}
+		if v.Kind == "entrance" && (v.StationID == "" || (v.Mode != "metro" && v.Mode != "railway")) {
+			return nil, fmt.Errorf("infra %d: station entrance", i)
 		}
 		if v.Kind == "area" && (v.FacilityKind != "depot" || !validPolygon(v.Geometry)) {
 			return nil, fmt.Errorf("infra %d: depot area", i)
@@ -434,6 +445,10 @@ func ValidateInfra(input []json.RawMessage, way, fallbackSince string) ([]Infra,
 				}
 			} else if v.Kind == "stop" {
 				v.Name = "Остановка"
+			} else if v.Kind == "station" {
+				v.Name = "Станция"
+			} else if v.Kind == "entrance" {
+				v.Name = "Вход"
 			} else {
 				v.Name = "Узел"
 			}

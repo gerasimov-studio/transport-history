@@ -4,7 +4,7 @@ export type TransportWay = 'rail' | 'road'
 
 export type EditorLayer = 'infra' | 'route'
 
-export type FeatureKind = 'track' | 'stop' | 'node' | 'area'
+export type FeatureKind = 'track' | 'stop' | 'station' | 'entrance' | 'node' | 'area'
 export type FacilityKind = 'depot'
 
 export type TrackForm = 'double' | 'single_oneway' | 'single_both'
@@ -127,6 +127,7 @@ export type NetworkProperties = {
   trackForm: TrackForm
   nodeKind?: NodeKind
   facilityKind?: FacilityKind
+  stationId?: string
   layer?: EditorLayer
   infraId?: string
   way?: TransportWay
@@ -168,6 +169,7 @@ export type InfraEntity = {
   trackForm: TrackForm
   nodeKind?: NodeKind
   facilityKind?: FacilityKind
+  stationId?: string
   geometry: NetworkFeature['geometry']
 }
 
@@ -324,6 +326,10 @@ export function infraLevel(entity: {
 
 export function isPortalNode(entity: { kind?: FeatureKind; nodeKind?: NodeKind }): boolean {
   return entity.kind === 'node' && entity.nodeKind === 'portal'
+}
+
+export function isHeavyRail(mode: TransportMode): boolean {
+  return mode === 'metro' || mode === 'railway'
 }
 
 export function sameGrade(left?: TrackGrade, right?: TrackGrade): boolean {

@@ -9,6 +9,7 @@ import {
   infraGrade,
   infraLevel,
   infraWay,
+  isHeavyRail,
   modesForWay,
   nodeKindsForWay,
   trackFormsForWay,
@@ -372,8 +373,17 @@ export function StudioPanel({
                 className={tool === 'stop' ? 'studio-btn is-on' : 'studio-btn'}
                 onClick={() => onTool('stop')}
               >
-                {t('studio.stop')}
+                {t(isHeavyRail(draft.mode) ? 'studio.station' : 'studio.stop')}
               </button>
+              {isHeavyRail(draft.mode) && (selectedInfra?.kind === 'station' || selectedInfra?.kind === 'entrance') ? (
+                <button
+                  type="button"
+                  className={tool === 'entrance' ? 'studio-btn is-on' : 'studio-btn'}
+                  onClick={() => onTool('entrance')}
+                >
+                  {t('studio.entrance')}
+                </button>
+              ) : null}
               <button
                 type="button"
                 className={tool === 'node' ? 'studio-btn is-on' : 'studio-btn'}
@@ -510,7 +520,9 @@ export function StudioPanel({
                     ? t('studio.hintTunnel')
                     : t('studio.hintRail')
                 : tool === 'stop'
-                  ? t('studio.hintStop')
+                  ? t(isHeavyRail(draft.mode) ? 'studio.hintStation' : 'studio.hintStop')
+                  : tool === 'entrance'
+                    ? t('studio.hintEntrance')
                   : tool === 'area'
                     ? t('studio.hintDepot')
                   : tool === 'node'
@@ -542,7 +554,7 @@ export function StudioPanel({
                       .join(' ')}
                     onClick={() => onSelectInfra(entity.id)}
                   >
-                    <span>{infraKindLabel(entity, locale, { stop: t('studio.stop'), street: t('studio.street'), track: t('studio.track'), wire: t('studio.wire'), portal: t('studio.portal'), depot: t('studio.depot') })}</span>
+                    <span>{infraKindLabel(entity, locale, { stop: t('studio.stop'), station: t('studio.station'), entrance: t('studio.entrance'), street: t('studio.street'), track: t('studio.track'), wire: t('studio.wire'), portal: t('studio.portal'), depot: t('studio.depot') })}</span>
                     <strong>{entity.name}</strong>
                   </button>
                 </li>
@@ -741,7 +753,7 @@ export function StudioPanel({
   )
 }
 
-function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: string; street: string; track: string; wire: string; portal: string; depot: string }): string {
+function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: string; station: string; entrance: string; street: string; track: string; wire: string; portal: string; depot: string }): string {
   const gauge = infraGauge(entity)
   const period = domain.validity(locale, entity.since, entity.until)
   const grade = infraWay(entity) === 'rail' ? infraGrade(entity) : undefined
@@ -757,6 +769,12 @@ function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: stri
   const extraText = extra ? ` · ${extra}` : ''
   if (entity.kind === 'stop') {
     return `${words.stop}${extraText}`
+  }
+  if (entity.kind === 'station') {
+    return `${words.station}${extraText}`
+  }
+  if (entity.kind === 'entrance') {
+    return `${words.entrance}${extraText}`
   }
   if (entity.kind === 'area') {
     return `${words.depot}${extraText}`

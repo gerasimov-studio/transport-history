@@ -21,6 +21,26 @@ const chronicle = (date: string, title: string, summary: string) => add('chronic
   id: `naryn-trolleybus-${date}`, city, mode: 'trolleybus', date, title, summary, network: '',
 })
 
+const stops: Array<{ id: string; name: string; point: [number, number]; since: string }> = [
+  { id: 'raymilitsiya', name: 'Раймилиция', point: [75.9399274, 41.4280471], since: '2008-08-25' },
+  { id: 'nalogovaya', name: 'Налоговая', point: [75.9411854, 41.427659], since: '2008-08-25' },
+  { id: 'eldiyar', name: 'Магазин «Эльдияр»', point: [75.9463888, 41.4271944], since: '2008-08-25' },
+  { id: 'naryn-suu', name: 'Нарын Суу', point: [75.9511819, 41.4266916], since: '2008-08-25' },
+  { id: 'azs', name: 'АЗС', point: [75.9591267, 41.4259938], since: '2008-08-25' },
+  { id: 'tilenbaeva', name: 'Улица Дуйшенбая Тиленбаева', point: [75.9623855, 41.4258188], since: '2008-08-25' },
+  { id: 'mukasha-isakova', name: 'Улица Мукаша Исакова', point: [75.9656632, 41.4258188], since: '1994-10-30' },
+  { id: 'mechet', name: 'Мечеть', point: [75.9693539, 41.4259917], since: '1994-10-30' },
+  { id: 'zhalyn', name: 'АО «Жалын»', point: [75.9761453, 41.426583], since: '1994-10-30' },
+  { id: 'mds', name: 'МДС', point: [75.9794605, 41.4266474], since: '1994-10-30' },
+  { id: 'bazar', name: 'Базар', point: [75.9823063, 41.4267459], since: '1994-10-30' },
+  { id: 'universitet', name: 'Университет', point: [75.9893793, 41.4276328], since: '1994-10-30' },
+  { id: 'drama-theatre', name: 'Драматический театр', point: [75.9933946, 41.4280853], since: '1994-10-30' },
+  { id: 'celebration-hall', name: 'Дом торжеств', point: [75.9999016, 41.4281296], since: '1994-10-30' },
+  { id: 'school-2', name: 'Школа № 2', point: [76.0068619, 41.4272829], since: '1994-10-30' },
+  { id: 'bus-station', name: 'Автовокзал', point: [76.0119313, 41.4252617], since: '1994-10-30' },
+  { id: 'lenina', name: 'Улица Ленина', point: [76.0178241, 41.4235411], since: '1994-10-30' },
+]
+
 add('infra.upsert', '1994-10-30', {
   id: 'naryn-trolleybus-wire-original', kind: 'track', way: 'road', mode: 'trolleybus',
   since: '1994-10-30', until: '2025-06-19', name: 'Улица Ленина — поворот к депо · реконструкция',
@@ -50,6 +70,11 @@ add('infra.upsert', '2008-08-25', {
   id: 'naryn-trolleybus-loop-raymilitsiya', kind: 'track', way: 'road', mode: 'trolleybus',
   since: '2008-08-25', until: '2025-06-19', name: 'Разворотное кольцо «Раймилиция» · реконструкция',
   color: '#277a64', trackForm: 'single_oneway', geometry: geometry.raymilitsiyaLoop, reconstruction: true,
+})
+for (const stop of stops) add('infra.upsert', stop.since, {
+  id: `naryn-trolleybus-stop-${stop.id}`, kind: 'stop', way: 'road', mode: 'trolleybus',
+  since: stop.since, until: '2024-05-31', name: stop.name,
+  color: '#277a64', trackForm: 'single_both', geometry: { type: 'Point', coordinates: stop.point },
 })
 add('route.upsert', '1994-10-30', {
   id: 'naryn-trolleybus-1-opening', mode: 'trolleybus', number: '1',
