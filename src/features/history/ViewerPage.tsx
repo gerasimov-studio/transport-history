@@ -5,6 +5,8 @@ import { MapStage, type ViewerFeature } from './components/MapStage'
 import { ModesPanel } from './components/ModesPanel'
 import { RoutesPanel } from './components/RoutesPanel'
 import { Timeline } from '../../components/Timeline'
+import { BrandMark } from '../../components/BrandMark'
+import { ThemeToggle } from '../../components/ThemeToggle'
 import { currentSnapshots, formatSnapshotDate, snapshotDates, snapshotsForCity } from '../../data/snapshots'
 import { useCatalog } from '../../data/useCatalog'
 import { useViewportState } from '../../data/useViewportState'
@@ -186,8 +188,14 @@ export function ViewerPage() {
       />
       {stateError ? <p className="map-error" role="status">{stateError}</p> : null}
       <header className="brand">
-        <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
-        <Link className="brand__account" to="/account">{user?.username ?? t('account.signInOrRegister')}</Link>
+        <div className="brand__lockup">
+          <BrandMark />
+          <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
+        </div>
+        <div className="brand__actions">
+          <Link className="brand__account" to="/account">{user?.username ?? t('account.signInOrRegister')}</Link>
+          <ThemeToggle />
+        </div>
       </header>
       <div className="side-dock">
         <ModesPanel

@@ -11,7 +11,8 @@ export const LOCALES: Array<{ id: Locale; label: string }> = [
 
 const messages = {
   en: {
-    'app.title': 'History of transport', loading: 'Loading…', map: 'Map', editor: 'Editor',
+    'app.title': 'transporthistory', loading: 'Loading…', map: 'Map', editor: 'Editor',
+    'theme.useLight': 'Use light theme', 'theme.useDark': 'Use dark theme',
     'account.title': 'My space', 'account.kicker': 'One workspace', 'account.maps': 'My maps',
     'account.changes': 'My changes', 'account.moderation': 'For my review', 'account.login': 'Sign in through the editor first.',
     'account.main': 'Main map', 'account.scenario': 'Scenario', 'account.open': 'Open in editor',
@@ -75,7 +76,8 @@ const messages = {
     'visibility.private': 'Private', 'visibility.link': 'By link', 'visibility.public': 'Public',
   },
   sr: {
-    'app.title': 'Istorija saobraćaja', loading: 'Učitavanje…', map: 'Mapa', editor: 'Uređivač',
+    'app.title': 'transporthistory', loading: 'Učitavanje…', map: 'Mapa', editor: 'Uređivač',
+    'theme.useLight': 'Uključi svetlu temu', 'theme.useDark': 'Uključi tamnu temu',
     'account.title': 'Moj prostor', 'account.kicker': 'Jedinstveni radni prostor', 'account.maps': 'Moje mape',
     'account.changes': 'Moje izmene', 'account.moderation': 'Za moju proveru', 'account.login': 'Prvo se prijavite kroz uređivač.',
     'account.main': 'Glavna mapa', 'account.scenario': 'Scenario', 'account.open': 'Otvori u uređivaču',
@@ -139,7 +141,8 @@ const messages = {
     'visibility.private': 'Privatno', 'visibility.link': 'Putem veze', 'visibility.public': 'Javno',
   },
   ru: {
-    'app.title': 'История транспорта', loading: 'Загрузка…', map: 'Карта', editor: 'Редактор',
+    'app.title': 'transporthistory', loading: 'Загрузка…', map: 'Карта', editor: 'Редактор',
+    'theme.useLight': 'Включить светлую тему', 'theme.useDark': 'Включить тёмную тему',
     'account.title': 'Моё пространство', 'account.kicker': 'Единое рабочее пространство', 'account.maps': 'Мои карты',
     'account.changes': 'Мои изменения', 'account.moderation': 'На моей модерации', 'account.login': 'Сначала войдите через редактор.',
     'account.main': 'Основная карта', 'account.scenario': 'Сценарий', 'account.open': 'Открыть в редакторе',

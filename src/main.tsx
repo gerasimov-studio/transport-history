@@ -4,7 +4,8 @@ import 'leaflet/dist/leaflet.css'
 import './index.css'
 import App from './App.tsx'
 import { I18nProvider } from './i18n.tsx'
+import { ThemeProvider } from './theme.tsx'
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode><I18nProvider><App /></I18nProvider></StrictMode>,
+  <StrictMode><ThemeProvider><I18nProvider><App /></I18nProvider></ThemeProvider></StrictMode>,
 )

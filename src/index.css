@@ -8,8 +8,40 @@
   --accent: #d7c4a3;
   --line: rgba(255, 255, 255, 0.12);
   --thumb: #f3eee6;
+  --map-filter: grayscale(1) saturate(0) brightness(0.72) contrast(0.88);
+  --map-background: #8b9096;
+  --control-shadow: 0 12px 36px rgba(0, 0, 0, 0.32);
+  --field-bg: rgba(8, 12, 16, 0.45);
+  --field-bg-subtle: rgba(8, 12, 16, 0.3);
+  --workspace-glow: #1b2934;
+  --brand-title: #f2e8d9;
+  --brand-mark: #493a2b;
+  --brand-mark-bg: rgba(250, 247, 240, 0.9);
+  --brand-mark-border: #8a7052;
   --serif: 'Iowan Old Style', Palatino, 'Palatino Linotype', Georgia, serif;
   --sans: 'Gill Sans', 'Gill Sans MT', 'Trebuchet MS', system-ui, sans-serif;
+}
+
+:root[data-theme='light'] {
+  --bg: #e8e4dc;
+  --panel: rgba(247, 244, 237, 0.86);
+  --panel-border: rgba(65, 58, 48, 0.22);
+  --text: #443f38;
+  --text-strong: #211e1a;
+  --muted: #716b63;
+  --accent: #765d3e;
+  --line: rgba(40, 35, 29, 0.14);
+  --thumb: #2d2924;
+  --map-filter: grayscale(1) saturate(0) brightness(1.08) contrast(0.76);
+  --map-background: #d1d0cb;
+  --control-shadow: 0 12px 36px rgba(50, 43, 34, 0.14);
+  --field-bg: rgba(255, 255, 255, 0.58);
+  --field-bg-subtle: rgba(255, 255, 255, 0.4);
+  --workspace-glow: #f6f1e7;
+  --brand-title: #35291e;
+  --brand-mark: #f2e8d9;
+  --brand-mark-bg: #111b25;
+  --brand-mark-border: #cdb58f;
 }
 
 * {
@@ -32,7 +64,7 @@ body {
 .workspace-page {
   min-height: 100svh;
   padding: 32px clamp(20px, 5vw, 72px) 72px;
-  background: radial-gradient(circle at top left, #1b2934, var(--bg) 46%);
+  background: radial-gradient(circle at top left, var(--workspace-glow), var(--bg) 46%);
 }
 
 .workspace-page h1 { margin: 4px 0 28px; color: var(--text-strong); font: 500 42px/1 var(--serif); }
@@ -45,7 +77,7 @@ body {
 .workspace-item span, .workspace-item small, .workspace-card > span { color: var(--muted); font-size: 12px; }
 .workspace-item h3 { margin: 8px 0 18px; }
 .workspace-form { display: flex; gap: 10px; margin-top: 18px; }
-.workspace-form input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--panel-border); background: #101923; color: var(--text-strong); }
+.workspace-form input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--panel-border); background: var(--field-bg); color: var(--text-strong); }
 .export-panel { flex-direction: row; align-items: center; justify-content: space-between; padding: 10px 12px; font-size: 12px; }
 .export-panel label { display: flex; align-items: center; gap: 6px; }
 .export-panel a { color: var(--accent); }
@@ -86,7 +118,7 @@ input {
 .map-stage__leaflet {
   width: 100%;
   height: 100%;
-  background: #8b9096;
+  background: var(--map-background);
 }
 
 .system-marker-shell { background: transparent; border: 0; }
@@ -94,11 +126,11 @@ input {
 
 .leaflet-container {
   font-family: var(--sans);
-  background: #8b9096;
+  background: var(--map-background);
 }
 
 .leaflet-tile-pane {
-  filter: grayscale(1) saturate(0) brightness(0.72) contrast(0.88);
+  filter: var(--map-filter);
 }
 
 .leaflet-bottom.leaflet-left,
@@ -111,19 +143,13 @@ input {
 }
 
 .leaflet-control-attribution {
-  background: rgba(14, 20, 28, 0.72) !important;
+  background: var(--panel) !important;
   color: var(--muted);
   margin: 0 0 8px 8px !important;
 }
 
 .leaflet-control-attribution a {
   color: var(--accent);
-}
-
-.leaflet-control-zoom a {
-  color: var(--text-strong) !important;
-  background: var(--panel) !important;
-  border-color: var(--panel-border) !important;
 }
 
 .leaflet-popup-content-wrapper,
@@ -146,6 +172,53 @@ input {
   pointer-events: none;
 }
 
+.brand__lockup,
+.brand__actions {
+  display: flex;
+  align-items: center;
+}
+
+.brand__lockup { gap: 8px; }
+.brand__actions {
+  gap: 6px;
+  margin-top: 14px;
+  margin-left: 52px;
+}
+
+.brand__mark {
+  width: 44px;
+  height: 44px;
+  display: block;
+  flex: none;
+  overflow: visible;
+  color: var(--brand-mark);
+  transform: translateY(4px);
+}
+
+.brand__mark-field {
+  fill: var(--brand-mark-bg);
+  stroke: var(--brand-mark-border);
+  stroke-width: 1.15;
+}
+
+.brand__mark-route {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.55;
+}
+
+.brand__mark-route--secondary {
+  stroke: var(--brand-mark-border);
+}
+
+.brand__mark-stations {
+  fill: var(--brand-mark-border);
+  stroke: var(--panel);
+  stroke-width: 0.7;
+}
+
 .brand__kicker {
   margin: 0 0 4px;
   color: var(--accent);
@@ -156,28 +229,48 @@ input {
 
 .brand__title {
   margin: 0;
-  color: var(--text-strong);
+  color: var(--brand-title);
   font-family: var(--serif);
   font-size: 42px;
   font-weight: 500;
   letter-spacing: 0.04em;
-  line-height: 1;
+  line-height: 34px;
 }
 
 .brand__account {
-  display: inline-block;
-  margin-top: 9px;
-  padding: 4px 8px;
-  border: 1px solid rgba(215, 196, 163, 0.22);
+  display: inline-flex;
+  height: 28px;
+  padding: 0 8px;
+  align-items: center;
+  border: 1px solid var(--panel-border);
   border-radius: 3px;
-  background: rgba(14, 20, 28, 0.62);
-  color: rgba(244, 239, 230, 0.82);
+  background: var(--panel);
+  color: var(--text);
   font-size: 12px;
   letter-spacing: 0.04em;
   text-decoration: none;
   pointer-events: auto;
   transition: color 150ms ease, opacity 150ms ease;
 }
+
+.theme-toggle {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  padding: 5px;
+  place-items: center;
+  border: 1px solid var(--panel-border);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--muted);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible { color: var(--text-strong); }
+.theme-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.theme-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; }
 
 .brand__account:hover,
 .brand__account:focus-visible {
@@ -204,7 +297,7 @@ input {
   border: 1px solid var(--panel-border);
   border-radius: 4px;
   background: var(--panel);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32);
+  box-shadow: var(--control-shadow);
   backdrop-filter: blur(16px);
 }
 
@@ -770,6 +863,10 @@ input {
   filter: grayscale(1) saturate(0) brightness(0.48) contrast(1.08);
 }
 
+:root[data-theme='light'] .studio .leaflet-tile-pane {
+  filter: var(--map-filter);
+}
+
 .year-range {
   margin: 0 0 10px;
 }
@@ -884,7 +981,7 @@ input {
   border: 1px solid var(--panel-border);
   border-radius: 4px;
   background: var(--panel);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32);
+  box-shadow: var(--control-shadow);
   backdrop-filter: blur(16px);
 }
 
@@ -982,7 +1079,7 @@ input {
   padding: 8px 10px;
   border: 1px solid var(--line);
   border-radius: 3px;
-  background: rgba(8, 12, 16, 0.45);
+  background: var(--field-bg);
   color: var(--text-strong);
 }
 
@@ -1053,7 +1150,7 @@ input {
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 3px;
-  background: rgba(8, 12, 16, 0.3);
+  background: var(--field-bg-subtle);
 }
 
 .studio-commit__state {

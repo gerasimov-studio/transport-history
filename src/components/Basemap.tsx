@@ -1,10 +1,6 @@
-import { AttributionControl, TileLayer, ZoomControl } from 'react-leaflet'
+import { AttributionControl, TileLayer } from 'react-leaflet'
 
-type BasemapProps = {
-  zoomPosition?: 'bottomleft' | 'topleft'
-}
-
-export function Basemap({ zoomPosition = 'bottomleft' }: BasemapProps) {
+export function Basemap() {
   return (
     <>
       <TileLayer
@@ -14,7 +10,6 @@ export function Basemap({ zoomPosition = 'bottomleft' }: BasemapProps) {
         maxNativeZoom={19}
         detectRetina
       />
-      <ZoomControl position={zoomPosition} />
       <AttributionControl position="bottomleft" prefix={false} />
     </>
   )
