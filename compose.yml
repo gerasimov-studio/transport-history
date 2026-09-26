@@ -31,27 +31,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgres://th:th@db:5432/th
-      LEGACY_API_URL: http://legacy-api:3002
       PORT: "3001"
-    depends_on:
-      db:
-        condition: service_healthy
-      legacy-api:
-        condition: service_healthy
-    expose:
-      - "3001"
-    ports:
-      - "3001:3001"
-
-  legacy-api:
-    build:
-      context: .
-      dockerfile: Dockerfile.legacy-api
-    container_name: th-legacy-api
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: postgres://th:th@db:5432/th
-      PORT: "3002"
+      SCHEMA_PATH: /migrations/init.sql
       EDITOR_USERNAME: editor
       EDITOR_PASSWORD: editor
       SUPERUSER_USERNAME: superadmin
@@ -59,12 +40,9 @@ services:
       db:
         condition: service_healthy
     expose:
-      - "3002"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/api/health >/dev/null || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 24
+      - "3001"
+    ports:
+      - "3001:3001"
 
   web:
     build: .

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -19,21 +17,23 @@ import (
 )
 
 var (
-	usernamePattern = regexp.MustCompile(`^[\p{L}\p{N}_.-]{3,32}$`)
-	userRolePath    = regexp.MustCompile(`^/api/users/(\d+)/role$`)
+	usernamePattern      = regexp.MustCompile(`^[\p{L}\p{N}_.-]{3,32}$`)
+	userRolePath         = regexp.MustCompile(`^/api/users/(\d+)/role$`)
+	snapshotNetworkPath  = regexp.MustCompile(`^/api/snapshots/([^/]+)/network$`)
+	snapshotPath         = regexp.MustCompile(`^/api/snapshots/([^/]+)$`)
+	changesetSubmitPath  = regexp.MustCompile(`^/api/changesets/([^/]+)/submit$`)
+	changesetPublishPath = regexp.MustCompile(`^/api/changesets/([^/]+)/publish$`)
+	changesetReviewPath  = regexp.MustCompile(`^/api/changesets/([^/]+)/review$`)
 )
 
 type Server struct {
-	pool   *pgxpool.Pool
-	legacy *httputil.ReverseProxy
+	pool          *pgxpool.Pool
+	locationCache map[string]any
+	httpClient    *http.Client
 }
 
-func New(pool *pgxpool.Pool, legacyURL string) (*Server, error) {
-	target, err := url.Parse(legacyURL)
-	if err != nil {
-		return nil, err
-	}
-	return &Server{pool: pool, legacy: httputil.NewSingleHostReverseProxy(target)}, nil
+func New(pool *pgxpool.Pool) *Server {
+	return &Server{pool: pool, locationCache: map[string]any{}, httpClient: &http.Client{Timeout: 12 * time.Second}}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -59,8 +59,44 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		s.users(w, r)
 	case r.Method == http.MethodPatch && userRolePath.MatchString(path):
 		s.updateRole(w, r)
+	case r.Method == http.MethodGet && path == "/api/location-context":
+		s.locationContext(w, r)
+	case r.Method == http.MethodGet && path == "/api/catalog":
+		s.catalog(w, r)
+	case r.Method == http.MethodGet && path == "/api/state":
+		s.state(w, r)
+	case r.Method == http.MethodGet && path == "/api/map":
+		s.mapView(w, r)
+	case r.Method == http.MethodGet && path == "/api/export.svg":
+		s.exportSVG(w, r)
+	case r.Method == http.MethodGet && snapshotNetworkPath.MatchString(path):
+		s.snapshotNetwork(w, r)
+	case r.Method == http.MethodGet && path == "/api/workspaces":
+		s.workspaces(w, r)
+	case r.Method == http.MethodPost && path == "/api/workspaces":
+		s.createWorkspace(w, r)
+	case r.Method == http.MethodGet && path == "/api/moderation-areas":
+		s.moderationAreas(w, r)
+	case r.Method == http.MethodPost && path == "/api/moderation-areas":
+		s.createModerationArea(w, r)
+	case r.Method == http.MethodGet && path == "/api/changesets":
+		s.changesets(w, r)
+	case r.Method == http.MethodPost && changesetSubmitPath.MatchString(path):
+		s.submitChangeset(w, r)
+	case r.Method == http.MethodPost && changesetPublishPath.MatchString(path):
+		s.publishChangeset(w, r)
+	case r.Method == http.MethodPost && changesetReviewPath.MatchString(path):
+		s.reviewChangeset(w, r)
+	case r.Method == http.MethodPost && path == "/api/objects/commit":
+		s.objectCommit(w, r)
+	case r.Method == http.MethodPost && path == "/api/commit":
+		s.legacyCommit(w, r)
+	case r.Method == http.MethodPost && path == "/api/snapshots":
+		s.createSnapshot(w, r)
+	case snapshotPath.MatchString(path) && (r.Method == http.MethodPut || r.Method == http.MethodDelete):
+		s.mutateSnapshot(w, r)
 	default:
-		s.legacy.ServeHTTP(w, r)
+		httpjson.Write(w, http.StatusNotFound, map[string]string{"error": "not found"})
 	}
 }
 

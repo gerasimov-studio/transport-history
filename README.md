@@ -34,11 +34,21 @@ docker compose up --build -d
 Студия (не ссылается с карты): `https://th.test/edit`  
 Локальный вход: `editor` / `editor` (см. `EDITOR_USERNAME` и `EDITOR_PASSWORD`).
 
-Локально фронт с прокси на API:
+Backend полностью реализован на Go; Node.js используется только для сборки фронтенда и
+вспомогательных скриптов подготовки демонстрационных данных.
+
+Локально фронт с прокси на Go API:
 
 ```bash
 docker compose up --build -d db api
 npm install
-npm run api
 npm run dev
+```
+
+Проверка backend:
+
+```bash
+cd services/backend
+go test ./...
+go vet ./...
 ```

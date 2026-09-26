@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "api": "node --experimental-strip-types --no-warnings api/server.ts",
     "build": "tsc -b && vite build",
     "data:metro": "node --experimental-strip-types --no-warnings scripts/export-metro-snapshots.ts",
     "data:sarajevo-tram": "node --experimental-strip-types --no-warnings scripts/seed-sarajevo-tram-history.ts",

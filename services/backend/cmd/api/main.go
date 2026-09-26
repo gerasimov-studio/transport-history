@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	backend "transport-history/backend/internal/api"
+	"transport-history/backend/internal/storage"
 )
 
 func main() {
@@ -18,8 +19,8 @@ func main() {
 	defer stop()
 
 	databaseURL := env("DATABASE_URL", "postgres://th:th@db:5432/th")
-	legacyURL := env("LEGACY_API_URL", "http://legacy-api:3002")
 	port := env("PORT", "3001")
+	schemaPath := env("SCHEMA_PATH", "/migrations/init.sql")
 
 	pool, err := pgxpool.New(ctx, databaseURL)
 	if err != nil {
@@ -30,8 +31,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	api, err := backend.New(pool, legacyURL)
-	if err != nil {
+	if err := storage.MigrateAndSeed(ctx, pool, schemaPath); err != nil {
+		log.Fatal(err)
+	}
+	api := backend.New(pool)
+	if err := api.SyncAllProjections(ctx); err != nil {
 		log.Fatal(err)
 	}
 	server := &http.Server{Addr: ":" + port, Handler: api.Handler(), ReadHeaderTimeout: 5 * time.Second}

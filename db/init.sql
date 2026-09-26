@@ -154,6 +154,12 @@ CREATE INDEX IF NOT EXISTS network_routes_segments_gin ON network_routes USING G
 CREATE INDEX IF NOT EXISTS network_routes_geom_gix ON network_routes USING GIST (geom);
 CREATE INDEX IF NOT EXISTS network_routes_validity_idx ON network_routes (valid_from, valid_to);
 
+CREATE TABLE IF NOT EXISTS projection_checkpoints (
+  scope_id text PRIMARY KEY,
+  last_event_id bigint NOT NULL,
+  projected_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS workspaces (
   id text PRIMARY KEY,
   kind text NOT NULL CHECK (kind IN ('canonical', 'scenario')),

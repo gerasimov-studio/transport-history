@@ -1,0 +1,61 @@
+package storage
+
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"transport-history/backend/internal/auth"
+)
+
+func MigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, schemaPath string) error {
+	schema, err := os.ReadFile(schemaPath)
+	if err != nil {
+		return fmt.Errorf("read schema: %w", err)
+	}
+	if _, err = pool.Exec(ctx, string(schema)); err != nil {
+		return fmt.Errorf("apply schema: %w", err)
+	}
+	_, err = pool.Exec(ctx, `INSERT INTO cities (id,name,aliases,lat,lng,zoom,min_zoom,max_zoom)
+		VALUES ('spb','Петербург',ARRAY['Санкт-Петербург','Петербург','Петроград','Ленинград'],59.9386,30.3141,12,8,20)
+		ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,aliases=EXCLUDED.aliases,lat=EXCLUDED.lat,lng=EXCLUDED.lng,zoom=EXCLUDED.zoom,min_zoom=EXCLUDED.min_zoom,max_zoom=EXCLUDED.max_zoom`)
+	if err != nil {
+		return err
+	}
+	for code, mode := range map[string]string{"ТМ": "tram", "МТ": "metro", "ТБ": "trolleybus", "АВ": "bus"} {
+		if _, err = pool.Exec(ctx, `INSERT INTO mode_codes(code,mode) VALUES($1,$2) ON CONFLICT(code) DO UPDATE SET mode=EXCLUDED.mode`, code, mode); err != nil {
+			return err
+		}
+	}
+	var count int
+	if err = pool.QueryRow(ctx, `SELECT count(*)::int FROM users`).Scan(&count); err != nil {
+		return err
+	}
+	editor := env("EDITOR_USERNAME", "editor")
+	if count == 0 {
+		hash, hashErr := auth.HashPassword(env("EDITOR_PASSWORD", "editor"))
+		if hashErr != nil {
+			return hashErr
+		}
+		if _, err = pool.Exec(ctx, `INSERT INTO users(username,password_hash) VALUES($1,$2)`, editor, hash); err != nil {
+			return err
+		}
+	}
+	superuser := os.Getenv("SUPERUSER_USERNAME")
+	if superuser == "" {
+		superuser = editor
+	}
+	if _, err = pool.Exec(ctx, `UPDATE users SET role='moderator' WHERE role IN ('admin','superuser') AND username<>$1`, superuser); err != nil {
+		return err
+	}
+	_, err = pool.Exec(ctx, `UPDATE users SET role='superuser' WHERE username=$1`, superuser)
+	return err
+}
+
+func env(name, fallback string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return fallback
+}
