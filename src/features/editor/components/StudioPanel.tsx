@@ -381,6 +381,9 @@ export function StudioPanel({
               >
                 {t('studio.node')}
               </button>
+              <button type="button" className={tool === 'area' ? 'studio-btn is-on' : 'studio-btn'} onClick={() => onTool('area')}>
+                {t('studio.depot')}
+              </button>
             </div>
             {tool === 'track' || selectedInfra?.kind === 'track' ? (
               <label className="studio-field">
@@ -508,6 +511,8 @@ export function StudioPanel({
                     : t('studio.hintRail')
                 : tool === 'stop'
                   ? t('studio.hintStop')
+                  : tool === 'area'
+                    ? t('studio.hintDepot')
                   : tool === 'node'
                     ? t('studio.hintNode')
                     : t('studio.hintSelect')}{' '}
@@ -537,7 +542,7 @@ export function StudioPanel({
                       .join(' ')}
                     onClick={() => onSelectInfra(entity.id)}
                   >
-                    <span>{infraKindLabel(entity, locale, { stop: t('studio.stop'), street: t('studio.street'), track: t('studio.track'), wire: t('studio.wire'), portal: t('studio.portal') })}</span>
+                    <span>{infraKindLabel(entity, locale, { stop: t('studio.stop'), street: t('studio.street'), track: t('studio.track'), wire: t('studio.wire'), portal: t('studio.portal'), depot: t('studio.depot') })}</span>
                     <strong>{entity.name}</strong>
                   </button>
                 </li>
@@ -564,7 +569,7 @@ export function StudioPanel({
                   <p className="studio-hint">{domain.trackForm(locale, selectedInfra.trackForm, draft.way, selectedInfra.mode ?? draft.mode)}</p>
                 ) : null}
                 <div className="studio-tools">
-                  {selectedInfra.geometry.type === 'LineString' ? (
+                  {selectedInfra.geometry.type === 'LineString' || selectedInfra.geometry.type === 'Polygon' ? (
                     <button type="button" className="studio-btn" onClick={onUndoVertex}>
                       {t('studio.undoPoint')}
                     </button>
@@ -736,7 +741,7 @@ export function StudioPanel({
   )
 }
 
-function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: string; street: string; track: string; wire: string; portal: string }): string {
+function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: string; street: string; track: string; wire: string; portal: string; depot: string }): string {
   const gauge = infraGauge(entity)
   const period = domain.validity(locale, entity.since, entity.until)
   const grade = infraWay(entity) === 'rail' ? infraGrade(entity) : undefined
@@ -752,6 +757,9 @@ function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: stri
   const extraText = extra ? ` · ${extra}` : ''
   if (entity.kind === 'stop') {
     return `${words.stop}${extraText}`
+  }
+  if (entity.kind === 'area') {
+    return `${words.depot}${extraText}`
   }
   if (entity.kind === 'node' && entity.nodeKind) {
     return `${domain.node(locale, entity.nodeKind)}${extraText}`

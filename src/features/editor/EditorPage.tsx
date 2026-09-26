@@ -438,6 +438,29 @@ export function EditorPage() {
       return
     }
     if (draft.layer !== 'infra') return
+    if (tool === 'area') {
+      if (selectedInfraId) {
+        const selected = draft.infra.find((entity) => entity.id === selectedInfraId)
+        if (selected?.kind === 'area' && selected.geometry.type === 'Polygon') {
+          updateInfra(selected.id, (entity) => {
+            if (entity.geometry.type !== 'Polygon') return entity
+            const ring = entity.geometry.coordinates[0] ?? []
+            const open = ring.length > 1 ? ring.slice(0, -1) : ring
+            const next = [...open, [lng, lat] as [number, number]]
+            return { ...entity, geometry: { type: 'Polygon', coordinates: [[...next, next[0]!]] } }
+          })
+          return
+        }
+      }
+      const id = newInfraId(draft.way, 'area')
+      const point: [number, number] = [lng, lat]
+      const entity: InfraEntity = { id, kind: 'area', facilityKind: 'depot', way: draft.way, mode: draft.mode,
+        since: drawSince, until: drawUntil || undefined, name: t('studio.depot'), color: MODE_COLORS[draft.mode],
+        trackForm: 'single_both', geometry: { type: 'Polygon', coordinates: [[point, point]] } }
+      setDraft((current) => current ? { ...current, infra: [...current.infra, entity] } : current)
+      setSelectedInfraId(id)
+      return
+    }
     if (tool === 'stop') {
       const id = newInfraId(draft.way, 'stop')
       const entity: InfraEntity = {
@@ -829,6 +852,11 @@ export function EditorPage() {
             return
           }
           updateInfra(key, (entity) => {
+            if (entity.geometry.type === 'Polygon') {
+              const ring = entity.geometry.coordinates[0]?.slice(0, -1) ?? []
+              ring[index] = coord
+              return { ...entity, geometry: { type: 'Polygon', coordinates: [[...ring, ring[0]!]] } }
+            }
             if (entity.geometry.type !== 'LineString') {
               return entity
             }
@@ -996,6 +1024,19 @@ export function EditorPage() {
               else legs[legs.length - 1] = { ...last, geometry: { type: 'LineString', coordinates } }
               return { ...route, legs }
             })
+            return
+          }
+          if (selectedInfra?.geometry.type === 'Polygon') {
+            const ring = selectedInfra.geometry.coordinates[0]?.slice(0, -2) ?? []
+            if (ring.length < 3) {
+              patchDraft({ infra: draft.infra.filter((entity) => entity.id !== selectedInfra.id) })
+              setSelectedInfraId(null)
+            } else {
+              updateInfra(selectedInfra.id, (entity) => ({
+                ...entity,
+                geometry: { type: 'Polygon', coordinates: [[...ring, ring[0]!]] },
+              }))
+            }
             return
           }
           if (!selectedInfra || selectedInfra.geometry.type !== 'LineString') {

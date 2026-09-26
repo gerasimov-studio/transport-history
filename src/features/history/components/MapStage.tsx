@@ -117,6 +117,7 @@ function ViewerNetwork({
           accent={feature.accent}
           showPopup
           zoom={view.zoom}
+          networkFeatures={features}
         />
       ))}
       <RouteShields ribbons={ribbons} />

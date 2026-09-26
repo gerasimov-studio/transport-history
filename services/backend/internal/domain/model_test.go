@@ -69,3 +69,21 @@ func TestValidateInfraNormalizesLegacyGauge(t *testing.T) {
 		t.Fatalf("unexpected normalized gauge: %#v", result[0].Gauge)
 	}
 }
+
+func TestValidateInfraAcceptsStandaloneDepotArea(t *testing.T) {
+	items := []json.RawMessage{raw(`{"id":"depot","kind":"area","facilityKind":"depot","name":"Depot","color":"#735f4b","geometry":{"type":"Polygon","coordinates":[[[1,2],[3,2],[3,4],[1,2]]]}}`)}
+	result, err := ValidateInfra(items, "road", "2000-01-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result[0].FacilityKind != "depot" || result[0].Geometry.Type != "Polygon" {
+		t.Fatalf("unexpected depot area: %#v", result[0])
+	}
+}
+
+func TestValidateInfraRejectsOpenDepotArea(t *testing.T) {
+	items := []json.RawMessage{raw(`{"id":"depot","kind":"area","facilityKind":"depot","name":"Depot","color":"#735f4b","geometry":{"type":"Polygon","coordinates":[[[1,2],[3,2],[3,4],[1,4]]]}}`)}
+	if _, err := ValidateInfra(items, "road", "2000-01-01"); err == nil {
+		t.Fatal("expected open depot polygon to be rejected")
+	}
+}

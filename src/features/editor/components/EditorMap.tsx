@@ -9,7 +9,7 @@ import { infraAliveAt, periodsOverlap, sameGauge, type CatalogCity, type MapView
 import { Basemap } from '../../../components/Basemap'
 import { RouteShields } from '../../../components/RouteShields'
 
-export type DrawTool = 'select' | 'track' | 'stop' | 'node' | 'route'
+export type DrawTool = 'select' | 'track' | 'stop' | 'node' | 'area' | 'route'
 
 export type DraftFeature = NetworkFeature & { key: string }
 
@@ -308,10 +308,13 @@ function DraftShape({
   onMovePoint: (coord: [number, number]) => void
 }) {
   const map = useMap()
-  const line =
-    enableVertices && selected && feature.geometry.type === 'LineString'
+  const line = enableVertices && selected
+    ? feature.geometry.type === 'LineString'
       ? feature.geometry.coordinates
-      : null
+      : feature.geometry.type === 'Polygon'
+        ? feature.geometry.coordinates[0]?.slice(0, -1) ?? null
+        : null
+    : null
   const point =
     enableVertices && selected && feature.geometry.type === 'Point'
       ? feature.geometry.coordinates
@@ -326,6 +329,7 @@ function DraftShape({
           muted={muted}
           emphasis={emphasis}
           zoom={zoom}
+          networkFeatures={features}
           onSelect={onSelect}
         />
       ) : null}

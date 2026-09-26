@@ -17,9 +17,9 @@ type snapshotInput struct {
 	Features                         []json.RawMessage `json:"features"`
 }
 type validatedSnapshotFeature struct {
-	Kind, LineID, Number, Name, Color, TrackForm string
-	NodeKind                                     *string
-	Geometry                                     domain.Geometry
+	Kind, LineID, Number, Name, Color, TrackForm, FacilityKind string
+	NodeKind                                                   *string
+	Geometry                                                   domain.Geometry
 }
 
 func snapshotKey(city, mode, date string) string { return city + "-" + mode + "-" + date }
@@ -40,13 +40,14 @@ func validateSnapshotFeatures(input snapshotInput) ([]validatedSnapshotFeature, 
 	for i, raw := range input.Features {
 		var v struct {
 			Properties struct {
-				Kind      string `json:"kind"`
-				LineID    string `json:"lineId"`
-				Number    string `json:"number"`
-				Name      string `json:"name"`
-				Color     string `json:"color"`
-				TrackForm string `json:"trackForm"`
-				NodeKind  string `json:"nodeKind"`
+				Kind         string `json:"kind"`
+				LineID       string `json:"lineId"`
+				Number       string `json:"number"`
+				Name         string `json:"name"`
+				Color        string `json:"color"`
+				TrackForm    string `json:"trackForm"`
+				NodeKind     string `json:"nodeKind"`
+				FacilityKind string `json:"facilityKind"`
 			} `json:"properties"`
 			Geometry domain.Geometry `json:"geometry"`
 		}
@@ -54,7 +55,7 @@ func validateSnapshotFeatures(input snapshotInput) ([]validatedSnapshotFeature, 
 			return nil, fmt.Errorf("feature %d: geometry", i)
 		}
 		p := v.Properties
-		if p.Kind != "track" && p.Kind != "stop" && p.Kind != "node" {
+		if p.Kind != "track" && p.Kind != "stop" && p.Kind != "node" && p.Kind != "area" {
 			return nil, fmt.Errorf("feature %d: kind", i)
 		}
 		if v.Geometry.Type == "" {
@@ -78,6 +79,9 @@ func validateSnapshotFeatures(input snapshotInput) ([]validatedSnapshotFeature, 
 		}
 		if p.Kind == "stop" && v.Geometry.Type != "Point" {
 			return nil, fmt.Errorf("feature %d: stop geometry", i)
+		}
+		if p.Kind == "area" && (p.FacilityKind != "depot" || v.Geometry.Type != "Polygon" || domain.CoordinateCount(v.Geometry) < 4) {
+			return nil, fmt.Errorf("feature %d: depot area", i)
 		}
 		var nk *string
 		if p.Kind == "node" {
@@ -105,7 +109,7 @@ func validateSnapshotFeatures(input snapshotInput) ([]validatedSnapshotFeature, 
 		if color == "" {
 			color = "#c45c26"
 		}
-		out = append(out, validatedSnapshotFeature{p.Kind, lineID, number, name, color, form, nk, v.Geometry})
+		out = append(out, validatedSnapshotFeature{p.Kind, lineID, number, name, color, form, p.FacilityKind, nk, v.Geometry})
 	}
 	return out, nil
 }
@@ -114,7 +118,7 @@ func (s *Server) snapshotNetwork(w http.ResponseWriter, r *http.Request) {
 	id := pathID(snapshotNetworkPath, r.URL.Path)
 	var city, mode string
 	_ = s.pool.QueryRow(r.Context(), `SELECT city_id,mode FROM snapshots WHERE id=$1`, id).Scan(&city, &mode)
-	rows, err := s.pool.Query(r.Context(), `SELECT kind,line_id,name,color,track_form,node_kind,ST_AsGeoJSON(geom)::json FROM features WHERE snapshot_id=$1 ORDER BY id`, id)
+	rows, err := s.pool.Query(r.Context(), `SELECT kind,line_id,name,color,track_form,node_kind,facility_kind,ST_AsGeoJSON(geom)::json FROM features WHERE snapshot_id=$1 ORDER BY id`, id)
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -123,12 +127,12 @@ func (s *Server) snapshotNetwork(w http.ResponseWriter, r *http.Request) {
 	features := []map[string]any{}
 	for rows.Next() {
 		var kind, line, name, color, form string
-		var node *string
+		var node, facility *string
 		var geom json.RawMessage
-		if rows.Scan(&kind, &line, &name, &color, &form, &node, &geom) == nil {
+		if rows.Scan(&kind, &line, &name, &color, &form, &node, &facility, &geom) == nil {
 			var geometry any
 			_ = json.Unmarshal(geom, &geometry)
-			features = append(features, map[string]any{"type": "Feature", "properties": map[string]any{"kind": kind, "mode": fallback(mode, "tram"), "lineId": line, "number": numberFromLineID(line, city, mode), "name": name, "color": color, "trackForm": fallback(form, "double"), "nodeKind": node}, "geometry": geometry})
+			features = append(features, map[string]any{"type": "Feature", "properties": map[string]any{"kind": kind, "mode": fallback(mode, "tram"), "lineId": line, "number": numberFromLineID(line, city, mode), "name": name, "color": color, "trackForm": fallback(form, "double"), "nodeKind": node, "facilityKind": facility}, "geometry": geometry})
 		}
 	}
 	httpjson.Write(w, 200, map[string]any{"type": "FeatureCollection", "features": features})
@@ -252,7 +256,7 @@ func (s *Server) writeSnapshot(r *http.Request, id string, input snapshotInput, 
 	}
 	for _, v := range features {
 		geom, _ := json.Marshal(v.Geometry)
-		_, err = tx.Exec(r.Context(), `INSERT INTO features(snapshot_id,kind,line_id,name,color,track_form,node_kind,geom)VALUES($1,$2,$3,$4,$5,$6,$7,ST_SetSRID(ST_GeomFromGeoJSON($8),4326))`, id, v.Kind, v.LineID, v.Name, v.Color, v.TrackForm, v.NodeKind, geom)
+		_, err = tx.Exec(r.Context(), `INSERT INTO features(snapshot_id,kind,line_id,name,color,track_form,node_kind,facility_kind,geom)VALUES($1,$2,$3,$4,$5,$6,$7,$8,ST_SetSRID(ST_GeomFromGeoJSON($9),4326))`, id, v.Kind, v.LineID, v.Name, v.Color, v.TrackForm, v.NodeKind, v.FacilityKind, geom)
 		if err != nil {
 			return err
 		}

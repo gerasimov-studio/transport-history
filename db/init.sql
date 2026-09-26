@@ -39,12 +39,13 @@ CREATE TABLE IF NOT EXISTS lines (
 CREATE TABLE IF NOT EXISTS features (
   id bigserial PRIMARY KEY,
   snapshot_id text NOT NULL REFERENCES snapshots (id) ON DELETE CASCADE,
-  kind text NOT NULL CHECK (kind IN ('track', 'stop', 'node')),
+  kind text NOT NULL CHECK (kind IN ('track', 'stop', 'node', 'area')),
   line_id text NOT NULL,
   name text NOT NULL,
   color text NOT NULL,
   track_form text NOT NULL DEFAULT 'double',
   node_kind text,
+  facility_kind text,
   geom geometry(Geometry, 4326) NOT NULL
 );
 
@@ -53,15 +54,19 @@ CREATE INDEX IF NOT EXISTS features_line_idx ON features (line_id);
 CREATE INDEX IF NOT EXISTS features_geom_gix ON features USING GIST (geom);
 
 ALTER TABLE features DROP CONSTRAINT IF EXISTS features_kind_check;
-ALTER TABLE features ADD CONSTRAINT features_kind_check CHECK (kind IN ('track', 'stop', 'node'));
+ALTER TABLE features ADD CONSTRAINT features_kind_check CHECK (kind IN ('track', 'stop', 'node', 'area'));
 ALTER TABLE features ADD COLUMN IF NOT EXISTS track_form text NOT NULL DEFAULT 'double';
 ALTER TABLE features ADD COLUMN IF NOT EXISTS node_kind text;
+ALTER TABLE features ADD COLUMN IF NOT EXISTS facility_kind text;
 ALTER TABLE features DROP CONSTRAINT IF EXISTS features_track_form_check;
 ALTER TABLE features ADD CONSTRAINT features_track_form_check
   CHECK (track_form IN ('double', 'single_oneway', 'single_both'));
 ALTER TABLE features DROP CONSTRAINT IF EXISTS features_node_kind_check;
 ALTER TABLE features ADD CONSTRAINT features_node_kind_check
   CHECK (node_kind IS NULL OR node_kind IN ('junction', 'terminus', 'loop', 'wye', 'crossover', 'portal'));
+ALTER TABLE features DROP CONSTRAINT IF EXISTS features_facility_kind_check;
+ALTER TABLE features ADD CONSTRAINT features_facility_kind_check
+  CHECK (facility_kind IS NULL OR facility_kind = 'depot');
 
 CREATE TABLE IF NOT EXISTS users (
   id serial PRIMARY KEY,

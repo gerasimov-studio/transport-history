@@ -4,7 +4,8 @@ export type TransportWay = 'rail' | 'road'
 
 export type EditorLayer = 'infra' | 'route'
 
-export type FeatureKind = 'track' | 'stop' | 'node'
+export type FeatureKind = 'track' | 'stop' | 'node' | 'area'
+export type FacilityKind = 'depot'
 
 export type TrackForm = 'double' | 'single_oneway' | 'single_both'
 
@@ -125,6 +126,7 @@ export type NetworkProperties = {
   color: string
   trackForm: TrackForm
   nodeKind?: NodeKind
+  facilityKind?: FacilityKind
   layer?: EditorLayer
   infraId?: string
   way?: TransportWay
@@ -143,6 +145,7 @@ export type NetworkFeature = {
     | { type: 'LineString'; coordinates: [number, number][] }
     | { type: 'MultiLineString'; coordinates: [number, number][][] }
     | { type: 'Point'; coordinates: [number, number] }
+    | { type: 'Polygon'; coordinates: [number, number][][] }
 }
 
 export type NetworkCollection = {
@@ -164,6 +167,7 @@ export type InfraEntity = {
   color: string
   trackForm: TrackForm
   nodeKind?: NodeKind
+  facilityKind?: FacilityKind
   geometry: NetworkFeature['geometry']
 }
 

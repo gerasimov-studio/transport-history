@@ -1,5 +1,5 @@
 import L from 'leaflet'
-import type { TransportMode } from '../types'
+import type { NetworkFeature, TransportMode } from '../types'
 
 export const DOUBLE_TRACK_DETAIL_ZOOM = 14
 
@@ -12,11 +12,19 @@ export function offsetPolyline(
   coords: [number, number][],
   offsetPixels: number,
   zoom: number,
+  collapse: { start?: boolean; end?: boolean } = {},
 ): [number, number][] {
   if (coords.length < 2 || offsetPixels === 0) {
     return coords
   }
-  const points = coords.map(([lng, lat]) => L.CRS.EPSG3857.latLngToPoint(L.latLng(lat, lng), zoom))
+  let points = coords.map(([lng, lat]) => L.CRS.EPSG3857.latLngToPoint(L.latLng(lat, lng), zoom))
+  const taper = Math.max(16, Math.abs(offsetPixels) * 4)
+  if (collapse.start && points[0]!.distanceTo(points[1]!) > taper) {
+    points = [points[0]!, interpolatePoint(points[0]!, points[1]!, taper), ...points.slice(1)]
+  }
+  if (collapse.end && points.at(-1)!.distanceTo(points.at(-2)!) > taper) {
+    points = [...points.slice(0, -1), interpolatePoint(points.at(-1)!, points.at(-2)!, taper), points.at(-1)!]
+  }
   return points.map((point, index) => {
     const previous = points[Math.max(0, index - 1)]!
     const next = points[Math.min(points.length - 1, index + 1)]!
@@ -24,12 +32,58 @@ export function offsetPolyline(
     const dy = next.y - previous.y
     const length = Math.hypot(dx, dy)
     if (length === 0) {
-      return coords[index]!
+      const latLng = L.CRS.EPSG3857.pointToLatLng(point, zoom)
+      return [latLng.lng, latLng.lat]
     }
-    const shifted = L.point(point.x - (dy / length) * offsetPixels, point.y + (dx / length) * offsetPixels)
+    const factor = (collapse.start && index === 0) || (collapse.end && index === points.length - 1) ? 0 : 1
+    const shifted = L.point(point.x - (dy / length) * offsetPixels * factor, point.y + (dx / length) * offsetPixels * factor)
     const latLng = L.CRS.EPSG3857.pointToLatLng(shifted, zoom)
     return [latLng.lng, latLng.lat]
   })
+}
+
+function interpolatePoint(from: L.Point, to: L.Point, distance: number): L.Point {
+  const length = from.distanceTo(to)
+  const factor = length === 0 ? 0 : distance / length
+  return L.point(from.x + (to.x - from.x) * factor, from.y + (to.y - from.y) * factor)
+}
+
+export function singleTrackJoins(
+  feature: NetworkFeature,
+  coordinates: [number, number][],
+  features: NetworkFeature[],
+): { start: boolean; end: boolean } {
+  if (feature.properties.trackForm !== 'double' || coordinates.length < 2) {
+    return { start: false, end: false }
+  }
+  const joined = [coordinates[0]!, coordinates.at(-1)!].map((endpoint) => features.some((candidate) => {
+    if (
+      candidate === feature || candidate.properties.kind !== 'track' ||
+      candidate.properties.trackForm === 'double' || candidate.properties.layer !== feature.properties.layer ||
+      candidate.properties.mode !== feature.properties.mode || candidate.properties.way !== feature.properties.way
+    ) return false
+    const lines = candidate.geometry.type === 'LineString'
+      ? [candidate.geometry.coordinates]
+      : candidate.geometry.type === 'MultiLineString' ? candidate.geometry.coordinates : []
+    return lines.some((line) => line.length > 1 && line.some((point, index) =>
+      sameCoordinate(endpoint, point) || (index > 0 && pointOnSegment(endpoint, line[index - 1]!, point)),
+    ))
+  }))
+  return { start: joined[0]!, end: joined[1]! }
+}
+
+function sameCoordinate(a: [number, number], b: [number, number]): boolean {
+  return Math.abs(a[0] - b[0]) < 1e-7 && Math.abs(a[1] - b[1]) < 1e-7
+}
+
+function pointOnSegment(point: [number, number], start: [number, number], end: [number, number]): boolean {
+  const dx = end[0] - start[0]
+  const dy = end[1] - start[1]
+  const lengthSquared = dx * dx + dy * dy
+  if (lengthSquared === 0) return sameCoordinate(point, start)
+  const projection = ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / lengthSquared
+  if (projection < 0 || projection > 1) return false
+  return sameCoordinate(point, [start[0] + projection * dx, start[1] + projection * dy])
 }
 
 export function polylineLength(coords: [number, number][]): number {

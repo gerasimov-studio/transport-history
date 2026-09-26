@@ -1,6 +1,6 @@
 import L from 'leaflet'
-import { CircleMarker, LayerGroup, Marker, Polyline, Popup } from 'react-leaflet'
-import { alongPolyline, DOUBLE_TRACK_DETAIL_ZOOM, doubleTrackVisibleGap, offsetPolyline } from './geometry'
+import { CircleMarker, LayerGroup, Marker, Polygon, Polyline, Popup } from 'react-leaflet'
+import { alongPolyline, DOUBLE_TRACK_DETAIL_ZOOM, doubleTrackVisibleGap, offsetPolyline, singleTrackJoins } from './geometry'
 import { strokeScale } from './lod'
 import { type NetworkFeature, type NodeKind } from '../types'
 import { useI18n, type Locale } from '../i18n'
@@ -14,6 +14,7 @@ type TrackShapeProps = {
   emphasis?: boolean
   accent?: 'added' | 'removed' | 'changed'
   zoom?: number
+  networkFeatures?: NetworkFeature[]
   onSelect?: () => void
 }
 
@@ -29,6 +30,7 @@ export function TrackShape({
   emphasis = false,
   accent,
   zoom = 13,
+  networkFeatures = [],
   onSelect,
 }: TrackShapeProps) {
   const { locale } = useI18n()
@@ -40,6 +42,18 @@ export function TrackShape({
         },
       }
     : undefined
+
+  if (feature.geometry.type === 'Polygon') {
+    return (
+      <Polygon
+        positions={feature.geometry.coordinates.map((ring) => ring.map(([lng, lat]) => [lat, lng] as [number, number]))}
+        pathOptions={{ color: feature.properties.color, weight: selected ? 3 : 2, fillOpacity: muted ? 0.12 : 0.24 }}
+        eventHandlers={events}
+      >
+        {showPopup ? <Popup><strong>{feature.properties.name}</strong></Popup> : null}
+      </Polygon>
+    )
+  }
 
   if (feature.geometry.type === 'Point') {
     const [lng, lat] = feature.geometry.coordinates
@@ -103,6 +117,7 @@ export function TrackShape({
             zoom={zoom}
             events={events}
             locale={locale}
+            networkFeatures={networkFeatures}
           />
       ))}
     </LayerGroup>
@@ -120,6 +135,7 @@ function TrackLine({
   zoom,
   events,
   locale,
+  networkFeatures,
 }: {
   feature: NetworkFeature
   coordinates: [number, number][]
@@ -131,6 +147,7 @@ function TrackLine({
   zoom: number
   events?: { click: (event: { originalEvent: Event }) => void }
   locale: Locale
+  networkFeatures: NetworkFeature[]
 }) {
   if (coordinates.length < 2) {
     return null
@@ -210,8 +227,9 @@ function TrackLine({
       const trackWeight = Math.max(1.35, (selected ? 2.8 : 2.1) * strokeScale(zoom))
       const visibleGap = doubleTrackVisibleGap(feature.properties.mode, zoom, selected)
       const separation = (trackWeight + visibleGap) / 2
+      const joins = singleTrackJoins(feature, coordinates, networkFeatures)
       const trackLines = [-separation, separation].map((offset) =>
-        offsetPolyline(coordinates, offset, zoom).map(([lng, lat]) => [lat, lng] as [number, number]),
+        offsetPolyline(coordinates, offset, zoom, joins).map(([lng, lat]) => [lat, lng] as [number, number]),
       )
       return (
         <>

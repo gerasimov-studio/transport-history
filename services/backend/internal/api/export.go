@@ -250,6 +250,17 @@ func (s *Server) buildSVG(r *http.Request, features []domain.Feature, b bounds, 
 			shapes = append(shapes, fmt.Sprintf(`<circle cx="%.2f" cy="%.2f" r="3" fill="%s" stroke="#fff" stroke-width="1"/>`, cx, cy, color))
 			continue
 		}
+		if f.Geometry.Type == "Polygon" {
+			for _, ring := range lines {
+				points := make([][2]float64, 0, len(ring))
+				for _, p := range ring {
+					x, y := project(p)
+					points = append(points, [2]float64{x, y})
+				}
+				shapes = append(shapes, fmt.Sprintf(`<polygon points="%s" fill="%s" fill-opacity="0.24" stroke="%s" stroke-opacity="0.85" stroke-width="2" stroke-linejoin="round"/>`, svgPolylinePoints(points), color, color))
+			}
+			continue
+		}
 		for _, line := range lines {
 			points := make([][2]float64, 0, len(line))
 			for _, p := range line {

@@ -24,20 +24,21 @@ type Geometry struct {
 }
 
 type Infra struct {
-	ID        string   `json:"id"`
-	Kind      string   `json:"kind"`
-	Way       string   `json:"way"`
-	Mode      string   `json:"mode,omitempty"`
-	Gauge     *int     `json:"gauge,omitempty"`
-	Grade     string   `json:"grade,omitempty"`
-	Level     *int     `json:"level,omitempty"`
-	Since     string   `json:"since,omitempty"`
-	Until     string   `json:"until,omitempty"`
-	Name      string   `json:"name"`
-	Color     string   `json:"color"`
-	TrackForm string   `json:"trackForm"`
-	NodeKind  string   `json:"nodeKind,omitempty"`
-	Geometry  Geometry `json:"geometry"`
+	ID           string   `json:"id"`
+	Kind         string   `json:"kind"`
+	Way          string   `json:"way"`
+	Mode         string   `json:"mode,omitempty"`
+	Gauge        *int     `json:"gauge,omitempty"`
+	Grade        string   `json:"grade,omitempty"`
+	Level        *int     `json:"level,omitempty"`
+	Since        string   `json:"since,omitempty"`
+	Until        string   `json:"until,omitempty"`
+	Name         string   `json:"name"`
+	Color        string   `json:"color"`
+	TrackForm    string   `json:"trackForm"`
+	NodeKind     string   `json:"nodeKind,omitempty"`
+	FacilityKind string   `json:"facilityKind,omitempty"`
+	Geometry     Geometry `json:"geometry"`
 }
 
 type RouteLeg struct {
@@ -85,23 +86,24 @@ type Projection struct {
 }
 
 type FeatureProperties struct {
-	Kind       string `json:"kind"`
-	Mode       string `json:"mode"`
-	LineID     string `json:"lineId"`
-	Number     string `json:"number"`
-	Name       string `json:"name"`
-	Color      string `json:"color"`
-	TrackForm  string `json:"trackForm"`
-	NodeKind   string `json:"nodeKind,omitempty"`
-	Layer      string `json:"layer,omitempty"`
-	InfraID    string `json:"infraId,omitempty"`
-	Way        string `json:"way,omitempty"`
-	Gauge      *int   `json:"gauge,omitempty"`
-	Grade      string `json:"grade,omitempty"`
-	Level      *int   `json:"level,omitempty"`
-	Propulsion string `json:"propulsion,omitempty"`
-	Since      string `json:"since,omitempty"`
-	Until      string `json:"until,omitempty"`
+	Kind         string `json:"kind"`
+	Mode         string `json:"mode"`
+	LineID       string `json:"lineId"`
+	Number       string `json:"number"`
+	Name         string `json:"name"`
+	Color        string `json:"color"`
+	TrackForm    string `json:"trackForm"`
+	NodeKind     string `json:"nodeKind,omitempty"`
+	FacilityKind string `json:"facilityKind,omitempty"`
+	Layer        string `json:"layer,omitempty"`
+	InfraID      string `json:"infraId,omitempty"`
+	Way          string `json:"way,omitempty"`
+	Gauge        *int   `json:"gauge,omitempty"`
+	Grade        string `json:"grade,omitempty"`
+	Level        *int   `json:"level,omitempty"`
+	Propulsion   string `json:"propulsion,omitempty"`
+	Since        string `json:"since,omitempty"`
+	Until        string `json:"until,omitempty"`
 }
 
 type Feature struct {
@@ -248,7 +250,7 @@ func Features(p Projection, date string) []Feature {
 				mode = "trolleybus"
 			}
 		}
-		out = append(out, Feature{Type: "Feature", Geometry: v.Geometry, Properties: FeatureProperties{Kind: v.Kind, Mode: mode, LineID: v.ID, Name: v.Name, Color: v.Color, TrackForm: v.TrackForm, NodeKind: v.NodeKind, Layer: "infra", InfraID: v.ID, Way: v.Way, Gauge: v.Gauge, Grade: v.Grade, Level: v.Level, Since: v.Since, Until: v.Until}})
+		out = append(out, Feature{Type: "Feature", Geometry: v.Geometry, Properties: FeatureProperties{Kind: v.Kind, Mode: mode, LineID: v.ID, Name: v.Name, Color: v.Color, TrackForm: v.TrackForm, NodeKind: v.NodeKind, FacilityKind: v.FacilityKind, Layer: "infra", InfraID: v.ID, Way: v.Way, Gauge: v.Gauge, Grade: v.Grade, Level: v.Level, Since: v.Since, Until: v.Until}})
 	}
 	for _, r := range p.Routes {
 		if date != "" && !Alive(r.Since, r.Until, date) {
@@ -304,6 +306,18 @@ func CoordinateCount(g Geometry) int {
 		return 0
 	}
 	return countPoints(v)
+}
+
+func validPolygon(g Geometry) bool {
+	if g.Type != "Polygon" {
+		return false
+	}
+	var rings [][][]float64
+	if json.Unmarshal(g.Coordinates, &rings) != nil || len(rings) == 0 || len(rings[0]) < 4 {
+		return false
+	}
+	first, last := rings[0][0], rings[0][len(rings[0])-1]
+	return len(first) >= 2 && len(last) >= 2 && first[0] == last[0] && first[1] == last[1]
 }
 func countPoints(v any) int {
 	a, ok := v.([]any)
@@ -371,7 +385,7 @@ func ValidateInfra(input []json.RawMessage, way, fallbackSince string) ([]Infra,
 		if v.ID == "" {
 			return nil, fmt.Errorf("infra %d: id", i)
 		}
-		if v.Kind != "track" && v.Kind != "stop" && v.Kind != "node" {
+		if v.Kind != "track" && v.Kind != "stop" && v.Kind != "node" && v.Kind != "area" {
 			return nil, fmt.Errorf("infra %d: kind", i)
 		}
 		if v.Geometry.Type == "" || len(v.Geometry.Coordinates) == 0 {
@@ -382,6 +396,9 @@ func ValidateInfra(input []json.RawMessage, way, fallbackSince string) ([]Infra,
 		}
 		if v.Kind == "stop" && v.Geometry.Type != "Point" {
 			return nil, fmt.Errorf("infra %d: stop geometry", i)
+		}
+		if v.Kind == "area" && (v.FacilityKind != "depot" || !validPolygon(v.Geometry)) {
+			return nil, fmt.Errorf("infra %d: depot area", i)
 		}
 		if v.Kind == "node" {
 			if !NodeKinds[v.NodeKind] {
