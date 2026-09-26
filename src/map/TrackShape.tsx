@@ -207,8 +207,9 @@ function TrackLine({
 
   if (form === 'double') {
     if (zoom >= DOUBLE_TRACK_DETAIL_ZOOM) {
-      const separation = (selected ? 3.2 : 2.6) * strokeScale(zoom)
       const trackWeight = Math.max(1.35, (selected ? 2.8 : 2.1) * strokeScale(zoom))
+      const visibleGap = selected ? 2.8 : 2.2
+      const separation = (trackWeight + visibleGap) / 2
       const trackLines = [-separation, separation].map((offset) =>
         offsetPolyline(coordinates, offset, zoom).map(([lng, lat]) => [lat, lng] as [number, number]),
       )

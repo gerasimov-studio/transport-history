@@ -15,3 +15,12 @@ func TestOffsetScreenLineCreatesParallelTracks(t *testing.T) {
 		}
 	}
 }
+
+func TestDetailedDoubleTrackKeepsVisibleGapAtClosestZoom(t *testing.T) {
+	scale := strokeScale(22)
+	trackStroke := math.Max(1.35, 2.1*scale)
+	separation := (trackStroke + 2.2) / 2
+	if gap := 2*separation - trackStroke; math.Abs(gap-2.2) > 0.001 {
+		t.Fatalf("visible gap = %.3f, want 2.2", gap)
+	}
+}

@@ -254,8 +254,8 @@ func (s *Server) buildSVG(r *http.Request, features []domain.Feature, b bounds, 
 				d = ` stroke-dasharray="` + dash + `"`
 			}
 			if form == "double" && zoom >= 14 {
-				separation := 2.6 * scale
 				trackStroke := math.Max(1.35, 2.1*scale)
+				separation := (trackStroke + 2.2) / 2
 				for _, offset := range []float64{-separation, separation} {
 					shifted := svgPolylinePoints(offsetScreenLine(points, offset))
 					shapes = append(shapes, fmt.Sprintf(`<polyline points="%s" fill="none" stroke="%s" stroke-opacity="%.2f" stroke-width="%.2f"%s stroke-linecap="round" stroke-linejoin="round"/>`, shifted, color, opacity, trackStroke, d))
