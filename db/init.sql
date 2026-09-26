@@ -112,6 +112,20 @@ CREATE TABLE IF NOT EXISTS transport_systems (
   valid_from date, valid_to date
 );
 
+-- A system keeps one stable id while its public name changes over time. The
+-- base name is a compatibility fallback; dated reads use this history.
+CREATE TABLE IF NOT EXISTS transport_system_names (
+  system_id text NOT NULL REFERENCES transport_systems (id) ON DELETE CASCADE,
+  name text NOT NULL,
+  valid_from date NOT NULL,
+  valid_to date,
+  PRIMARY KEY (system_id, valid_from),
+  CHECK (valid_to IS NULL OR valid_to >= valid_from)
+);
+
+CREATE INDEX IF NOT EXISTS transport_system_names_validity_idx
+  ON transport_system_names (system_id, valid_from, valid_to);
+
 CREATE TABLE IF NOT EXISTS transport_system_localities (
   system_id text NOT NULL REFERENCES transport_systems (id) ON DELETE CASCADE,
   locality_id text NOT NULL, name text NOT NULL,
@@ -120,6 +134,31 @@ CREATE TABLE IF NOT EXISTS transport_system_localities (
 );
 
 CREATE INDEX IF NOT EXISTS transport_system_localities_system_idx ON transport_system_localities (system_id);
+
+-- Lineage is separate from locality growth. Multiple predecessors may point
+-- to one successor for a merger; a split points to several successors.
+CREATE TABLE IF NOT EXISTS transport_system_lineage (
+  predecessor_id text NOT NULL REFERENCES transport_systems (id) ON DELETE CASCADE,
+  successor_id text NOT NULL REFERENCES transport_systems (id) ON DELETE CASCADE,
+  relation text NOT NULL CHECK (relation IN ('merged_into', 'split_into', 'continued_as')),
+  effective_on date NOT NULL,
+  PRIMARY KEY (predecessor_id, successor_id, effective_on),
+  CHECK (predecessor_id <> successor_id)
+);
+
+CREATE INDEX IF NOT EXISTS transport_system_lineage_successor_idx
+  ON transport_system_lineage (successor_id, effective_on);
+
+-- Canonical system labels name the served place, not a transport mode. Keep
+-- former branded labels as aliases for discovery.
+UPDATE transport_systems
+SET name = 'Bakı', aliases = ARRAY['Baku', 'Bakı Metro', 'Baku Metro', 'Бакинский метрополитен']
+WHERE id = 'baku';
+
+INSERT INTO transport_system_names (system_id, name, valid_from)
+SELECT id, 'Bakı', COALESCE(valid_from, DATE '1967-11-06')
+FROM transport_systems WHERE id = 'baku'
+ON CONFLICT (system_id, valid_from) DO UPDATE SET name = EXCLUDED.name;
 
 -- Spatial read model. Events remain the source of truth; this projection makes
 -- viewport reads independent from administrative boundaries.

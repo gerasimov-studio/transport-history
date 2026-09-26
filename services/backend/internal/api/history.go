@@ -297,7 +297,19 @@ func (s *Server) catalog(w http.ResponseWriter, r *http.Request) {
 		Localities []string
 	}
 	systems := []map[string]any{}
-	rows, err = s.pool.Query(r.Context(), `SELECT system.id,system.name,system.aliases,system.lat,system.lng,system.zoom,COALESCE(array_agg(locality.name ORDER BY locality.name) FILTER(WHERE locality.name IS NOT NULL),'{}') FROM transport_systems system LEFT JOIN transport_system_localities locality ON locality.system_id=system.id GROUP BY system.id ORDER BY system.id`)
+	rows, err = s.pool.Query(r.Context(), `SELECT system.id,COALESCE(effective_name.name,system.name),system.aliases,system.lat,system.lng,system.zoom,
+		COALESCE(array_agg(locality.name ORDER BY locality.name) FILTER(WHERE locality.name IS NOT NULL),'{}')
+		FROM transport_systems system
+		LEFT JOIN LATERAL(
+			SELECT history.name FROM transport_system_names history
+			WHERE history.system_id=system.id AND history.valid_from<=CURRENT_DATE
+				AND(history.valid_to IS NULL OR history.valid_to>=CURRENT_DATE)
+			ORDER BY history.valid_from DESC LIMIT 1
+		)effective_name ON true
+		LEFT JOIN transport_system_localities locality ON locality.system_id=system.id
+			AND(locality.valid_from IS NULL OR locality.valid_from<=CURRENT_DATE)
+			AND(locality.valid_to IS NULL OR locality.valid_to>=CURRENT_DATE)
+		GROUP BY system.id,effective_name.name ORDER BY system.id`)
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -416,20 +428,51 @@ func userID(u *auth.User) any {
 func (s *Server) buildMap(ctx context.Context, b bounds, date string, zoom float64, detail bool, workspace string) (mapState, error) {
 	out := mapState{Scope: "viewport", Bounds: b, Zoom: zoom, Date: date, Dates: []string{}, Events: []domain.Chronicle{}, Infra: []domain.Infra{}, Routes: []domain.Route{}, Chronicles: []domain.Chronicle{}, Features: []domain.Feature{}, Places: []map[string]any{}}
 	if zoom < 11 && !detail {
-		rows, err := s.pool.Query(ctx, `WITH active_modes AS(SELECT source_scope,array_agg(DISTINCT mode) modes FROM(SELECT source_scope,mode FROM network_routes WHERE(valid_from IS NULL OR valid_from<=$1)AND(valid_to IS NULL OR valid_to>=$1) UNION SELECT source_scope,payload->>'mode' mode FROM network_infra WHERE payload->>'mode' IN('metro','tram','trolleybus','bus')AND(valid_from IS NULL OR valid_from<=$1)AND(valid_to IS NULL OR valid_to>=$1))q WHERE mode IN('metro','tram','trolleybus','bus') GROUP BY source_scope) SELECT system.id,system.name,system.lat,system.lng,active_modes.modes FROM transport_systems system JOIN active_modes ON active_modes.source_scope=system.id WHERE system.lng BETWEEN $2 AND $4 AND system.lat BETWEEN $3 AND $5 AND(system.valid_from IS NULL OR system.valid_from<=$1)AND(system.valid_to IS NULL OR system.valid_to>=$1) UNION ALL SELECT city.id,city.name,city.lat,city.lng,active_modes.modes FROM cities city JOIN active_modes ON active_modes.source_scope=city.id WHERE city.lng BETWEEN $2 AND $4 AND city.lat BETWEEN $3 AND $5 AND NOT EXISTS(SELECT 1 FROM transport_system_localities locality WHERE locality.locality_id=city.id)`, date, b.West, b.South, b.East, b.North)
+		rows, err := s.pool.Query(ctx, `WITH active_modes AS(
+			SELECT source_scope,array_agg(DISTINCT mode) modes FROM(
+				SELECT source_scope,mode FROM network_routes WHERE(valid_from IS NULL OR valid_from<=$1)AND(valid_to IS NULL OR valid_to>=$1)
+				UNION SELECT source_scope,payload->>'mode' mode FROM network_infra WHERE payload->>'mode' IN('metro','tram','trolleybus','bus')AND(valid_from IS NULL OR valid_from<=$1)AND(valid_to IS NULL OR valid_to>=$1)
+			)q WHERE mode IN('metro','tram','trolleybus','bus') GROUP BY source_scope
+		) SELECT system.id,COALESCE(effective_name.name,system.name),system.lat,system.lng,active_modes.modes,
+			COALESCE((SELECT array_agg(locality.name ORDER BY locality.name) FROM transport_system_localities locality
+				WHERE locality.system_id=system.id AND(locality.valid_from IS NULL OR locality.valid_from<=$1)
+					AND(locality.valid_to IS NULL OR locality.valid_to>=$1)),'{}')
+		FROM transport_systems system
+		JOIN active_modes ON active_modes.source_scope=system.id
+		LEFT JOIN LATERAL(
+			SELECT history.name FROM transport_system_names history
+			WHERE history.system_id=system.id AND history.valid_from<=$1
+				AND(history.valid_to IS NULL OR history.valid_to>=$1)
+			ORDER BY history.valid_from DESC LIMIT 1
+		)effective_name ON true
+		WHERE system.lng BETWEEN $2 AND $4 AND system.lat BETWEEN $3 AND $5
+			AND(system.valid_from IS NULL OR system.valid_from<=$1)AND(system.valid_to IS NULL OR system.valid_to>=$1)
+		UNION ALL SELECT city.id,city.name,city.lat,city.lng,active_modes.modes,ARRAY[city.name]
+		FROM cities city JOIN active_modes ON active_modes.source_scope=city.id
+		WHERE city.lng BETWEEN $2 AND $4 AND city.lat BETWEEN $3 AND $5
+			AND NOT EXISTS(SELECT 1 FROM transport_system_localities locality WHERE locality.locality_id=city.id)`, date, b.West, b.South, b.East, b.North)
 		if err != nil {
 			return out, err
 		}
 		for rows.Next() {
 			var id, name string
 			var lat, lng float64
-			var modes []string
-			if rows.Scan(&id, &name, &lat, &lng, &modes) == nil {
-				out.Places = append(out.Places, map[string]any{"id": id, "name": name, "center": []float64{lat, lng}, "modes": modes})
+			var modes, localities []string
+			if rows.Scan(&id, &name, &lat, &lng, &modes, &localities) == nil {
+				out.Places = append(out.Places, map[string]any{"id": id, "name": name, "center": []float64{lat, lng}, "modes": modes, "localities": localities})
 			}
 		}
 		rows.Close()
-		rows, err = s.pool.Query(ctx, `SELECT DISTINCT date::text FROM(SELECT valid_from date FROM transport_systems WHERE lng BETWEEN $1 AND $3 AND lat BETWEEN $2 AND $4 UNION ALL SELECT valid_to date FROM transport_systems WHERE lng BETWEEN $1 AND $3 AND lat BETWEEN $2 AND $4 UNION ALL SELECT min(event.occurred_on) date FROM cities city JOIN events event ON event.city_id=city.id WHERE city.lng BETWEEN $1 AND $3 AND city.lat BETWEEN $2 AND $4 AND NOT EXISTS(SELECT 1 FROM transport_system_localities locality WHERE locality.locality_id=city.id)GROUP BY city.id)q WHERE date IS NOT NULL ORDER BY date`, b.West, b.South, b.East, b.North)
+		rows, err = s.pool.Query(ctx, `SELECT DISTINCT date::text FROM(
+			SELECT valid_from date FROM transport_systems WHERE lng BETWEEN $1 AND $3 AND lat BETWEEN $2 AND $4
+			UNION ALL SELECT valid_to date FROM transport_systems WHERE lng BETWEEN $1 AND $3 AND lat BETWEEN $2 AND $4
+			UNION ALL SELECT history.valid_from date FROM transport_system_names history JOIN transport_systems system ON system.id=history.system_id WHERE system.lng BETWEEN $1 AND $3 AND system.lat BETWEEN $2 AND $4
+			UNION ALL SELECT history.valid_to date FROM transport_system_names history JOIN transport_systems system ON system.id=history.system_id WHERE system.lng BETWEEN $1 AND $3 AND system.lat BETWEEN $2 AND $4
+			UNION ALL SELECT locality.valid_from date FROM transport_system_localities locality JOIN transport_systems system ON system.id=locality.system_id WHERE system.lng BETWEEN $1 AND $3 AND system.lat BETWEEN $2 AND $4
+			UNION ALL SELECT locality.valid_to date FROM transport_system_localities locality JOIN transport_systems system ON system.id=locality.system_id WHERE system.lng BETWEEN $1 AND $3 AND system.lat BETWEEN $2 AND $4
+			UNION ALL SELECT lineage.effective_on date FROM transport_system_lineage lineage JOIN transport_systems system ON system.id IN(lineage.predecessor_id,lineage.successor_id) WHERE system.lng BETWEEN $1 AND $3 AND system.lat BETWEEN $2 AND $4
+			UNION ALL SELECT min(event.occurred_on) date FROM cities city JOIN events event ON event.city_id=city.id WHERE city.lng BETWEEN $1 AND $3 AND city.lat BETWEEN $2 AND $4 AND NOT EXISTS(SELECT 1 FROM transport_system_localities locality WHERE locality.locality_id=city.id)GROUP BY city.id
+		)q WHERE date IS NOT NULL ORDER BY date`, b.West, b.South, b.East, b.North)
 		if err != nil {
 			return out, err
 		}

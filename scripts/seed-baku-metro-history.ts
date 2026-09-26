@@ -114,7 +114,10 @@ try {
   await client.query(`INSERT INTO transport_systems (id, name, aliases, lat, lng, zoom, valid_from)
     VALUES ($1,$2,$3,$4,$5,12,$6) ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, aliases=EXCLUDED.aliases,
     lat=EXCLUDED.lat, lng=EXCLUDED.lng, zoom=EXCLUDED.zoom, valid_from=EXCLUDED.valid_from`,
-  [city, 'Bakı Metro', ['Baku Metro', 'Бакинский метрополитен'], 40.3953, 49.8666, '1967-11-06'])
+  [city, 'Bakı', ['Baku', 'Bakı Metro', 'Baku Metro', 'Бакинский метрополитен'], 40.3953, 49.8666, '1967-11-06'])
+  await client.query(`INSERT INTO transport_system_names (system_id, name, valid_from)
+    VALUES ($1,$2,$3) ON CONFLICT (system_id, valid_from) DO UPDATE SET name=EXCLUDED.name, valid_to=NULL`,
+  [city, 'Bakı', '1967-11-06'])
   await client.query(`INSERT INTO transport_system_localities (system_id, locality_id, name, role, valid_from)
     VALUES ($1,$1,$2,'core',$3) ON CONFLICT (system_id, locality_id) DO UPDATE SET
     name=EXCLUDED.name, role=EXCLUDED.role, valid_from=EXCLUDED.valid_from`,

@@ -199,6 +199,7 @@ export type MapPlace = {
   name: string
   center: [number, number]
   modes: TransportMode[]
+  localities?: string[]
 }
 
 export type MapViewport = {
