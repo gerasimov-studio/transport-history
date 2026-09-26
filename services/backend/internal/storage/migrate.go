@@ -17,12 +17,6 @@ func MigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, schemaPath string) 
 	if _, err = pool.Exec(ctx, string(schema)); err != nil {
 		return fmt.Errorf("apply schema: %w", err)
 	}
-	_, err = pool.Exec(ctx, `INSERT INTO cities (id,name,aliases,lat,lng,zoom,min_zoom,max_zoom)
-		VALUES ('spb','Петербург',ARRAY['Санкт-Петербург','Петербург','Петроград','Ленинград'],59.9386,30.3141,12,8,20)
-		ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name,aliases=EXCLUDED.aliases,lat=EXCLUDED.lat,lng=EXCLUDED.lng,zoom=EXCLUDED.zoom,min_zoom=EXCLUDED.min_zoom,max_zoom=EXCLUDED.max_zoom`)
-	if err != nil {
-		return err
-	}
 	for code, mode := range map[string]string{"ТМ": "tram", "МТ": "metro", "ТБ": "trolleybus", "АВ": "bus"} {
 		if _, err = pool.Exec(ctx, `INSERT INTO mode_codes(code,mode) VALUES($1,$2) ON CONFLICT(code) DO UPDATE SET mode=EXCLUDED.mode`, code, mode); err != nil {
 			return err
