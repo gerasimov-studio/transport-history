@@ -16,11 +16,16 @@ func TestOffsetScreenLineCreatesParallelTracks(t *testing.T) {
 	}
 }
 
-func TestDetailedDoubleTrackKeepsVisibleGapAtClosestZoom(t *testing.T) {
-	scale := strokeScale(22)
-	trackStroke := math.Max(1.35, 2.1*scale)
-	separation := (trackStroke + 2.2) / 2
-	if gap := 2*separation - trackStroke; math.Abs(gap-2.2) > 0.001 {
-		t.Fatalf("visible gap = %.3f, want 2.2", gap)
+func TestTrolleybusDoubleTrackGapGrowsWithZoom(t *testing.T) {
+	previous := 0.0
+	for _, zoom := range []float64{14, 18, 22} {
+		gap := doubleTrackGap("trolleybus", zoom)
+		if gap <= previous {
+			t.Fatalf("gap did not grow at zoom %.0f: %.3f <= %.3f", zoom, gap, previous)
+		}
+		previous = gap
+	}
+	if railway := doubleTrackGap("railway", 22); math.Abs(railway-2.2) > 0.001 {
+		t.Fatalf("railway gap must remain compact, got %.3f", railway)
 	}
 }

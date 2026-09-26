@@ -1,6 +1,12 @@
 import L from 'leaflet'
+import type { TransportMode } from '../types'
 
 export const DOUBLE_TRACK_DETAIL_ZOOM = 14
+
+export function doubleTrackVisibleGap(mode: TransportMode, zoom: number, selected = false): number {
+  const base = selected ? 2.8 : 2.2
+  return mode === 'trolleybus' ? base * 1.35 ** Math.max(0, zoom - DOUBLE_TRACK_DETAIL_ZOOM) : base
+}
 
 export function offsetPolyline(
   coords: [number, number][],

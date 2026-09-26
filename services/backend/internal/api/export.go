@@ -179,6 +179,13 @@ func svgPolylinePoints(points [][2]float64) string {
 	return strings.Join(out, " ")
 }
 
+func doubleTrackGap(mode string, zoom float64) float64 {
+	if mode == "trolleybus" {
+		return 2.2 * math.Pow(1.35, math.Max(0, zoom-14))
+	}
+	return 2.2
+}
+
 func (s *Server) buildSVG(r *http.Request, features []domain.Feature, b bounds, zoom float64, width, height int, basemap bool, places []map[string]any) (string, error) {
 	left, top := worldPixel(b.West, b.North, zoom)
 	right, bottom := worldPixel(b.East, b.South, zoom)
@@ -255,7 +262,7 @@ func (s *Server) buildSVG(r *http.Request, features []domain.Feature, b bounds, 
 			}
 			if form == "double" && zoom >= 14 {
 				trackStroke := math.Max(1.35, 2.1*scale)
-				separation := (trackStroke + 2.2) / 2
+				separation := (trackStroke + doubleTrackGap(f.Properties.Mode, zoom)) / 2
 				for _, offset := range []float64{-separation, separation} {
 					shifted := svgPolylinePoints(offsetScreenLine(points, offset))
 					shapes = append(shapes, fmt.Sprintf(`<polyline points="%s" fill="none" stroke="%s" stroke-opacity="%.2f" stroke-width="%.2f"%s stroke-linecap="round" stroke-linejoin="round"/>`, shifted, color, opacity, trackStroke, d))
