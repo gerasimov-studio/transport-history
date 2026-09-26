@@ -75,12 +75,13 @@ export function ViewerPage() {
   }, [date])
   const { state, error: stateError } = useViewportState(viewport, selectedDate, workspaceId)
   const dates = state ? (state.dates ?? emptyDates) : catalogDates
-  const timelineDates = useMemo(
-    () => [...new Set([...dates.filter((item) => item <= today), today])].sort(),
-    [dates],
-  )
+  const detailedView = (viewport?.zoom ?? initialLinkedStart?.zoom ?? mapStart.zoom) >= 11
   const timelineEvents = useMemo(() => state?.events ?? [], [state?.events])
   const eventDates = useMemo(() => snapshotDates(timelineEvents), [timelineEvents])
+  const timelineDates = useMemo(
+    () => datesForTimeline(eventDates.length ? eventDates : dates, detailedView),
+    [dates, detailedView, eventDates],
+  )
   const previousDate = useMemo(() => {
     if (!selectedDate) {
       return null
@@ -158,7 +159,6 @@ export function ViewerPage() {
       .map((feature) => ({ ...feature, accent: 'removed' as const }))
     return [...ghosts, ...current]
   }, [baseFeatures, diff, modes, previous, showChanges])
-  const detailedView = (viewport?.zoom ?? initialLinkedStart?.zoom ?? mapStart.zoom) >= 11
   const selectDate = useCallback((next: string) => {
     setDate(next)
     rememberTimelineDate(next)
@@ -270,10 +270,23 @@ export function ViewerPage() {
         ) : null}
       </div>
       {selectedDate ? (
-        <Timeline dates={eventDates.length ? [...new Set([...eventDates.filter((item) => item <= today), today])].sort() : timelineDates} date={selectedDate} onDateChange={selectDate} />
+        <Timeline
+          dates={timelineDates}
+          date={selectedDate}
+          granularity={detailedView ? 'date' : 'year'}
+          onDateChange={selectDate}
+        />
       ) : null}
     </div>
   )
+}
+
+function datesForTimeline(dates: string[], detailed: boolean): string[] {
+  const available = [...new Set([...dates.filter((item) => item <= today), today])].sort()
+  if (detailed) return available
+  const lastDateByYear = new Map<string, string>()
+  for (const item of available) lastDateByYear.set(item.slice(0, 4), item)
+  return [...lastDateByYear.values()]
 }
 
 function mapStartFromParams(params: URLSearchParams) {
