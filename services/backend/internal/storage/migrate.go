@@ -17,7 +17,7 @@ func MigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, schemaPath string) 
 	if _, err = pool.Exec(ctx, string(schema)); err != nil {
 		return fmt.Errorf("apply schema: %w", err)
 	}
-	for code, mode := range map[string]string{"ТМ": "tram", "МТ": "metro", "ТБ": "trolleybus", "АВ": "bus"} {
+	for code, mode := range map[string]string{"ЖД": "railway", "ТМ": "tram", "МТ": "metro", "ТБ": "trolleybus", "АВ": "bus"} {
 		if _, err = pool.Exec(ctx, `INSERT INTO mode_codes(code,mode) VALUES($1,$2) ON CONFLICT(code) DO UPDATE SET mode=EXCLUDED.mode`, code, mode); err != nil {
 			return err
 		}

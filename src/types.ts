@@ -1,4 +1,4 @@
-export type TransportMode = 'metro' | 'tram' | 'trolleybus' | 'bus'
+export type TransportMode = 'railway' | 'metro' | 'tram' | 'trolleybus' | 'bus'
 
 export type TransportWay = 'rail' | 'road'
 
@@ -13,6 +13,7 @@ export type NodeKind = 'junction' | 'terminus' | 'loop' | 'wye' | 'crossover' | 
 export type TrackGrade = 'surface' | 'tunnel'
 
 export const TRANSPORT_MODES: { id: TransportMode; label: string }[] = [
+  { id: 'railway', label: 'Railway' },
   { id: 'metro', label: 'Metro' },
   { id: 'tram', label: 'Tram' },
   { id: 'trolleybus', label: 'Trolleybus' },
@@ -25,11 +26,12 @@ export const TRANSPORT_WAYS: { id: TransportWay; label: string }[] = [
 ]
 
 export const WAY_MODES: Record<TransportWay, TransportMode[]> = {
-  rail: ['metro', 'tram'],
+  rail: ['railway', 'metro', 'tram'],
   road: ['trolleybus', 'bus'],
 }
 
 export const MODE_COLORS: Record<TransportMode, string> = {
+  railway: '#735f4b',
   metro: '#d6083b',
   tram: '#c45c26',
   trolleybus: '#2e7d4f',
@@ -240,7 +242,7 @@ export function wayLabel(way: TransportWay): string {
 }
 
 export function wayOf(mode: TransportMode): TransportWay {
-  return mode === 'metro' || mode === 'tram' ? 'rail' : 'road'
+  return mode === 'railway' || mode === 'metro' || mode === 'tram' ? 'rail' : 'road'
 }
 
 export function defaultMode(way: TransportWay): TransportMode {
@@ -355,8 +357,8 @@ export function wayEnabled(way: TransportWay, modes: Record<TransportMode, boole
   return WAY_MODES[way].some((mode) => modes[mode])
 }
 
-export function trackFormsForWay(way: TransportWay): { id: TrackForm; label: string }[] {
-  return way === 'road' ? ROAD_TRACK_FORMS : TRACK_FORMS
+export function trackFormsForWay(way: TransportWay, mode?: TransportMode): { id: TrackForm; label: string }[] {
+  return way === 'road' && mode !== 'trolleybus' ? ROAD_TRACK_FORMS : TRACK_FORMS
 }
 
 export function nodeKindsForWay(way: TransportWay) {
@@ -366,8 +368,8 @@ export function nodeKindsForWay(way: TransportWay) {
   return NODE_KINDS
 }
 
-export function trackFormLabel(form: TrackForm, way?: TransportWay): string {
-  return (way ? trackFormsForWay(way) : TRACK_FORMS).find((item) => item.id === form)?.label ?? form
+export function trackFormLabel(form: TrackForm, way?: TransportWay, mode?: TransportMode): string {
+  return (way ? trackFormsForWay(way, mode) : TRACK_FORMS).find((item) => item.id === form)?.label ?? form
 }
 
 export function nodeKindLabel(kind: NodeKind): string {

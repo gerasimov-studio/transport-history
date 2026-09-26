@@ -431,8 +431,8 @@ func (s *Server) buildMap(ctx context.Context, b bounds, date string, zoom float
 		rows, err := s.pool.Query(ctx, `WITH active_modes AS(
 			SELECT source_scope,array_agg(DISTINCT mode) modes FROM(
 				SELECT source_scope,mode FROM network_routes WHERE(valid_from IS NULL OR valid_from<=$1)AND(valid_to IS NULL OR valid_to>=$1)
-				UNION SELECT source_scope,payload->>'mode' mode FROM network_infra WHERE payload->>'mode' IN('metro','tram','trolleybus','bus')AND(valid_from IS NULL OR valid_from<=$1)AND(valid_to IS NULL OR valid_to>=$1)
-			)q WHERE mode IN('metro','tram','trolleybus','bus') GROUP BY source_scope
+				UNION SELECT source_scope,payload->>'mode' mode FROM network_infra WHERE payload->>'mode' IN('railway','metro','tram','trolleybus','bus')AND(valid_from IS NULL OR valid_from<=$1)AND(valid_to IS NULL OR valid_to>=$1)
+			)q WHERE mode IN('railway','metro','tram','trolleybus','bus') GROUP BY source_scope
 		) SELECT system.id,COALESCE(effective_name.name,system.name),system.lat,system.lng,active_modes.modes,
 			COALESCE((SELECT array_agg(locality.name ORDER BY locality.name) FROM transport_system_localities locality
 				WHERE locality.system_id=system.id AND(locality.valid_from IS NULL OR locality.valid_from<=$1)

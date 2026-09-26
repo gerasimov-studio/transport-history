@@ -186,7 +186,7 @@ export function StudioPanel({
         .map((id) => infra.find((entity) => entity.id === id))
         .filter((entity): entity is InfraEntity => Boolean(entity))
     : []
-  const trackForms = trackFormsForWay(draft.way)
+  const trackForms = trackFormsForWay(draft.way, draft.mode)
   const nodeKinds = nodeKindsForWay(draft.way)
   const currentGauge = canonicalGauge(selectedInfra ? infraGauge(selectedInfra) ?? drawGauge : drawGauge)
   const currentGrade = selectedInfra && selectedInfra.nodeKind !== 'portal' ? infraGrade(selectedInfra) : drawGrade
@@ -365,7 +365,7 @@ export function StudioPanel({
                 className={tool === 'track' ? 'studio-btn is-on' : 'studio-btn'}
                 onClick={() => onTool('track')}
               >
-                {draft.way === 'road' ? t('studio.street') : t('studio.track')}
+                {draft.mode === 'trolleybus' ? t('studio.wire') : draft.way === 'road' ? t('studio.street') : t('studio.track')}
               </button>
               <button
                 type="button"
@@ -384,7 +384,7 @@ export function StudioPanel({
             </div>
             {tool === 'track' || selectedInfra?.kind === 'track' ? (
               <label className="studio-field">
-                {draft.way === 'road' ? t('studio.streetType') : t('studio.trackType')}
+                {draft.mode === 'trolleybus' ? t('studio.wireType') : draft.way === 'road' ? t('studio.streetType') : t('studio.trackType')}
                 <select
                   value={selectedInfra?.kind === 'track' ? selectedInfra.trackForm : trackForm}
                   onChange={(event) => {
@@ -397,7 +397,7 @@ export function StudioPanel({
                 >
                   {trackForms.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {domain.trackForm(locale, item.id, draft.way)}
+                      {domain.trackForm(locale, item.id, draft.way, draft.mode)}
                     </option>
                   ))}
                 </select>
@@ -499,8 +499,10 @@ export function StudioPanel({
             </label>
             <p className="studio-hint">
               {tool === 'track'
-                ? draft.way === 'road'
-                  ? t('studio.hintRoad')
+                ? draft.mode === 'trolleybus'
+                  ? t('studio.hintWire')
+                  : draft.way === 'road'
+                    ? t('studio.hintRoad')
                   : currentGrade === 'tunnel'
                     ? t('studio.hintTunnel')
                     : t('studio.hintRail')
@@ -535,7 +537,7 @@ export function StudioPanel({
                       .join(' ')}
                     onClick={() => onSelectInfra(entity.id)}
                   >
-                    <span>{infraKindLabel(entity, locale, { stop: t('studio.stop'), street: t('studio.street'), track: t('studio.track'), portal: t('studio.portal') })}</span>
+                    <span>{infraKindLabel(entity, locale, { stop: t('studio.stop'), street: t('studio.street'), track: t('studio.track'), wire: t('studio.wire'), portal: t('studio.portal') })}</span>
                     <strong>{entity.name}</strong>
                   </button>
                 </li>
@@ -559,7 +561,7 @@ export function StudioPanel({
                   />
                 </label>
                 {selectedInfra.kind === 'track' ? (
-                  <p className="studio-hint">{domain.trackForm(locale, selectedInfra.trackForm, draft.way)}</p>
+                  <p className="studio-hint">{domain.trackForm(locale, selectedInfra.trackForm, draft.way, selectedInfra.mode ?? draft.mode)}</p>
                 ) : null}
                 <div className="studio-tools">
                   {selectedInfra.geometry.type === 'LineString' ? (
@@ -666,7 +668,7 @@ export function StudioPanel({
                     <li key={segment.id}>
                       <div className="studio-list__item studio-list__item--static">
                         <span>
-                          {domain.trackForm(locale, segment.trackForm, draft.way)}
+                          {domain.trackForm(locale, segment.trackForm, draft.way, segment.mode ?? draft.mode)}
                           {domain.validity(locale, segment.since, segment.until)
                             ? ` · ${domain.validity(locale, segment.since, segment.until)}`
                             : ''}
@@ -734,7 +736,7 @@ export function StudioPanel({
   )
 }
 
-function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: string; street: string; track: string; portal: string }): string {
+function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: string; street: string; track: string; wire: string; portal: string }): string {
   const gauge = infraGauge(entity)
   const period = domain.validity(locale, entity.since, entity.until)
   const grade = infraWay(entity) === 'rail' ? infraGrade(entity) : undefined
@@ -754,5 +756,5 @@ function infraKindLabel(entity: InfraEntity, locale: Locale, words: { stop: stri
   if (entity.kind === 'node' && entity.nodeKind) {
     return `${domain.node(locale, entity.nodeKind)}${extraText}`
   }
-  return `${infraWay(entity) === 'road' ? words.street : words.track}${extraText}`
+  return `${entity.mode === 'trolleybus' ? words.wire : infraWay(entity) === 'road' ? words.street : words.track}${extraText}`
 }

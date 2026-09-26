@@ -57,7 +57,7 @@ func (s *Server) exportSVG(w http.ResponseWriter, r *http.Request) {
 	enabled := map[string]bool{}
 	rawModes := q.Get("modes")
 	if rawModes == "" {
-		rawModes = "metro,tram,trolleybus,bus"
+		rawModes = "railway,metro,tram,trolleybus,bus"
 	}
 	for _, v := range strings.Split(rawModes, ",") {
 		if domain.Modes[v] {
@@ -80,8 +80,12 @@ func (s *Server) exportSVG(w http.ResponseWriter, r *http.Request) {
 			if enabled[p.Mode] && (visible == nil || visible[p.LineID]) {
 				features = append(features, f)
 			}
+		} else if domain.Modes[p.Mode] {
+			if enabled[p.Mode] {
+				features = append(features, f)
+			}
 		} else if p.Way == "rail" {
-			if enabled["metro"] || enabled["tram"] {
+			if enabled["railway"] || enabled["metro"] || enabled["tram"] {
 				features = append(features, f)
 			}
 		} else if enabled["trolleybus"] || enabled["bus"] {

@@ -166,7 +166,9 @@ function TrackLine({
       <div>
         {isNode && feature.properties.nodeKind
           ? domain.node(locale, feature.properties.nodeKind)
-          : domain.trackForm(locale, form, feature.properties.way)}
+          : isAutonomous
+            ? domain.propulsion(locale, 'autonomous')
+            : domain.trackForm(locale, form, feature.properties.way, feature.properties.mode)}
       </div>
       {feature.properties.way === 'rail' && feature.properties.gauge ? (
         <div>{domain.gauge(locale, feature.properties.gauge)}</div>

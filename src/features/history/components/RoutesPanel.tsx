@@ -85,7 +85,7 @@ export function RoutesPanel({ routes, hidden, onToggle, onSetMode }: RoutesPanel
 }
 
 function groupByMode(routes: RouteEntity[]): { mode: TransportMode; routes: RouteEntity[] }[] {
-  const order: TransportMode[] = ['metro', 'tram', 'trolleybus', 'bus']
+  const order: TransportMode[] = ['railway', 'metro', 'tram', 'trolleybus', 'bus']
   return order
     .map((mode) => ({
       mode,

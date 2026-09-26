@@ -18,6 +18,7 @@ import { infraAliveAt, infraWay, wayEnabled, type MapViewport, type TransportMod
 import { Link } from 'react-router-dom'
 
 const initialModes: Record<TransportMode, boolean> = {
+  railway: true,
   metro: true,
   tram: true,
   trolleybus: true,
@@ -133,7 +134,7 @@ export function ViewerPage() {
       (state?.features ?? []).filter((feature) =>
         feature.properties.layer === 'route'
           ? visibleRouteIds.has(feature.properties.lineId)
-          : wayEnabled(infraWay(feature.properties), modes),
+          : modes[feature.properties.mode] ?? wayEnabled(infraWay(feature.properties), modes),
       ),
     [modes, state?.features, visibleRouteIds],
   )
@@ -153,7 +154,7 @@ export function ViewerPage() {
         return (
           Boolean(feature.properties.infraId) &&
           diff.removedInfra.has(feature.properties.infraId ?? '') &&
-          wayEnabled(infraWay(feature.properties), modes)
+          (modes[feature.properties.mode] ?? wayEnabled(infraWay(feature.properties), modes))
         )
       })
       .map((feature) => ({ ...feature, accent: 'removed' as const }))

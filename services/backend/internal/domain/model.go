@@ -13,7 +13,7 @@ import (
 
 var datePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
-var Modes = map[string]bool{"metro": true, "tram": true, "trolleybus": true, "bus": true}
+var Modes = map[string]bool{"railway": true, "metro": true, "tram": true, "trolleybus": true, "bus": true}
 var Ways = map[string]bool{"rail": true, "road": true}
 var TrackForms = map[string]bool{"double": true, "single_oneway": true, "single_both": true}
 var NodeKinds = map[string]bool{"junction": true, "terminus": true, "loop": true, "wye": true, "crossover": true, "portal": true}
@@ -120,7 +120,7 @@ type Operations struct {
 func ValidDate(value string) bool { return datePattern.MatchString(value) }
 
 func WayOf(mode string) string {
-	if mode == "metro" || mode == "tram" {
+	if mode == "railway" || mode == "metro" || mode == "tram" {
 		return "rail"
 	}
 	return "road"

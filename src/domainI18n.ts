@@ -3,7 +3,7 @@ import { canonicalGauge, type NodeKind, type TrackForm, type TrackGrade, type Tr
 
 const labels = {
   en: {
-    mode: { metro: 'Metro', tram: 'Tram', trolleybus: 'Trolleybus', bus: 'Bus' },
+    mode: { railway: 'Railway', metro: 'Metro', tram: 'Tram', trolleybus: 'Trolleybus', bus: 'Bus' },
     way: { rail: 'Rail', road: 'Road' },
     grade: { surface: 'Surface', tunnel: 'Tunnel' },
     trackRail: { double: 'Double track', single_oneway: 'Single track, one way', single_both: 'Single track, both ways' },
@@ -11,9 +11,10 @@ const labels = {
     node: { junction: 'Junction / passing loop', terminus: 'Terminus', portal: 'Tunnel portal', loop: 'Turning loop', wye: 'Wye', crossover: 'Crossover' },
     gauge: { 1520: '1520 mm · broad gauge', 1435: '1435 mm · standard gauge', 1000: '1000 mm · metre gauge' },
     ground: 'ground', level: 'level', from: 'from', present: 'present',
+    propulsion: { wire: 'Under contact wire', autonomous: 'Autonomous running' },
   },
   sr: {
-    mode: { metro: 'Metro', tram: 'Tramvaj', trolleybus: 'Trolejbus', bus: 'Autobus' },
+    mode: { railway: 'Železnica', metro: 'Metro', tram: 'Tramvaj', trolleybus: 'Trolejbus', bus: 'Autobus' },
     way: { rail: 'Šinski', road: 'Drumski' },
     grade: { surface: 'Na površini', tunnel: 'Tunel' },
     trackRail: { double: 'Dvokolosečna', single_oneway: 'Jednokolosečna, jednosmerna', single_both: 'Jednokolosečna, dvosmerna' },
@@ -21,9 +22,10 @@ const labels = {
     node: { junction: 'Čvor / mimoilaznica', terminus: 'Okretnica', portal: 'Portal tunela', loop: 'Okretna petlja', wye: 'Okretni trougao', crossover: 'Skretnica' },
     gauge: { 1520: '1520 mm · široki kolosek', 1435: '1435 mm · standardni kolosek', 1000: '1000 mm · metarski kolosek' },
     ground: 'površina', level: 'nivo', from: 'od', present: 'danas',
+    propulsion: { wire: 'Pod kontaktnom mrežom', autonomous: 'Autonomna vožnja' },
   },
   ru: {
-    mode: { metro: 'Метро', tram: 'Трамвай', trolleybus: 'Троллейбус', bus: 'Автобус' },
+    mode: { railway: 'Железная дорога', metro: 'Метро', tram: 'Трамвай', trolleybus: 'Троллейбус', bus: 'Автобус' },
     way: { rail: 'Рельсовый', road: 'Дорожный' },
     grade: { surface: 'На земле', tunnel: 'Тоннель' },
     trackRail: { double: 'Двухпутная', single_oneway: 'Однопутная, в одну сторону', single_both: 'Однопутная, в обе стороны' },
@@ -31,6 +33,7 @@ const labels = {
     node: { junction: 'Узел / разъезд', terminus: 'Конечная', portal: 'Выход на поверхность', loop: 'Оборотное кольцо', wye: 'Треугольник', crossover: 'Съезд' },
     gauge: { 1520: '1520 мм · русская', 1435: '1435 мм · европейская', 1000: '1000 мм · метровая' },
     ground: 'земля', level: 'ярус', from: 'с', present: 'н.в.',
+    propulsion: { wire: 'Под контактной сетью', autonomous: 'Автономный ход' },
   },
 } as const
 
@@ -40,8 +43,10 @@ export const domain = {
   grade: (locale: Locale, value: TrackGrade) => labels[locale].grade[value],
   level: (locale: Locale, value: number) => value === 0 ? labels[locale].ground : `${labels[locale].level} ${value}`,
   gauge: (locale: Locale, value: number) => labels[locale].gauge[canonicalGauge(value) as keyof typeof labels.en.gauge] ?? `${canonicalGauge(value)} mm`,
-  trackForm: (locale: Locale, value: TrackForm, way: TransportWay = 'rail') => (way === 'road' ? labels[locale].trackRoad : labels[locale].trackRail)[value],
+  trackForm: (locale: Locale, value: TrackForm, way: TransportWay = 'rail', mode?: TransportMode) =>
+    (way === 'road' && mode !== 'trolleybus' ? labels[locale].trackRoad : labels[locale].trackRail)[value],
   node: (locale: Locale, value: NodeKind) => labels[locale].node[value],
+  propulsion: (locale: Locale, value: 'wire' | 'autonomous') => labels[locale].propulsion[value],
   validity: (locale: Locale, since?: string, until?: string) => {
     if (!since) return ''
     const from = since.slice(0, 4)

@@ -21,10 +21,30 @@ func TestProjectAndRenderTrolleybusLegs(t *testing.T) {
 	for _, feature := range features {
 		if feature.Properties.Layer == "route" {
 			propulsion[feature.Properties.Propulsion] = true
+			if feature.Properties.Propulsion == "wire" && feature.Properties.TrackForm != "double" {
+				t.Fatalf("wired route must inherit infrastructure track form: %#v", feature.Properties)
+			}
+			if feature.Properties.Propulsion == "autonomous" && feature.Properties.InfraID != "" {
+				t.Fatalf("autonomous route must not reference infrastructure: %#v", feature.Properties)
+			}
 		}
 	}
 	if !propulsion["wire"] || !propulsion["autonomous"] {
 		t.Fatalf("missing trolleybus propulsion variants: %#v", propulsion)
+	}
+}
+
+func TestRailwayIsRailInfrastructure(t *testing.T) {
+	if got := WayOf("railway"); got != "rail" {
+		t.Fatalf("railway way = %q, want rail", got)
+	}
+	items := []json.RawMessage{raw(`{"id":"mainline","kind":"track","mode":"railway","name":"Main line","color":"#735f4b","trackForm":"single_both","geometry":{"type":"LineString","coordinates":[[1,2],[3,4]]}}`)}
+	result, err := ValidateInfra(items, "rail", "1900-01-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result[0].Mode != "railway" || result[0].TrackForm != "single_both" {
+		t.Fatalf("unexpected railway infrastructure: %#v", result[0])
 	}
 }
 
