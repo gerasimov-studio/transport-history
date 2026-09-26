@@ -5,11 +5,12 @@ const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) throw new Error('DATABASE_URL is required')
 
 type LineString = { type: 'LineString'; coordinates: [number, number][] }
+type Polygon = { type: 'Polygon'; coordinates: [number, number][][] }
 type Event = { type: string; date: string; payload: Record<string, unknown> }
 
 const geometry = JSON.parse(
   readFileSync(new URL('../db/seed/naryn-trolleybus-osm.json', import.meta.url), 'utf8'),
-) as { original: LineString; extension: LineString }
+) as { original: LineString; extension: LineString; depotAccess: LineString; leninaLoop: LineString; raymilitsiyaLoop: LineString; depotArea: Polygon }
 const pool = new pg.Pool({ connectionString: databaseUrl })
 const actor = 'seed:naryn-trolleybus-history-v1'
 const city = 'naryn'
@@ -20,33 +21,62 @@ const chronicle = (date: string, title: string, summary: string) => add('chronic
   id: `naryn-trolleybus-${date}`, city, mode: 'trolleybus', date, title, summary, network: '',
 })
 
-add('infra.upsert', '1994-12-30', {
+add('infra.upsert', '1994-10-30', {
   id: 'naryn-trolleybus-wire-original', kind: 'track', way: 'road', mode: 'trolleybus',
-  since: '1994-12-30', until: '2024-05-31', name: 'Автовокзал — улица Мукаша Исакова · реконструкция',
+  since: '1994-10-30', until: '2025-06-19', name: 'Улица Ленина — поворот к депо · реконструкция',
   color: '#277a64', trackForm: 'double', geometry: geometry.original, reconstruction: true,
+})
+add('infra.upsert', '1994-10-30', {
+  id: 'naryn-trolleybus-loop-lenina', kind: 'track', way: 'road', mode: 'trolleybus',
+  since: '1994-10-30', until: '2025-06-19', name: 'Разворотное кольцо «Улица Ленина» · реконструкция',
+  color: '#277a64', trackForm: 'single_oneway', geometry: geometry.leninaLoop, reconstruction: true,
+})
+add('infra.upsert', '1994-12-13', {
+  id: 'naryn-trolleybus-wire-depot-access', kind: 'track', way: 'road', mode: 'trolleybus',
+  since: '1994-12-13', until: '2025-06-19', name: 'Служебная линия в депо · реконструкция',
+  color: '#277a64', trackForm: 'double', geometry: geometry.depotAccess, reconstruction: true,
+})
+add('infra.upsert', '1994-12-13', {
+  id: 'naryn-trolleybus-depot', kind: 'area', facilityKind: 'depot', way: 'road', mode: 'trolleybus',
+  since: '1994-12-13', until: '2025-03-04', name: 'Нарынское троллейбусное депо',
+  color: '#277a64', trackForm: 'single_both', geometry: geometry.depotArea,
 })
 add('infra.upsert', '2008-08-25', {
   id: 'naryn-trolleybus-wire-extension', kind: 'track', way: 'road', mode: 'trolleybus',
-  since: '2008-08-25', until: '2024-05-31', name: 'Улица Мукаша Исакова — Раймилиция · реконструкция',
+  since: '2008-08-25', until: '2025-06-19', name: 'Поворот к депо — Раймилиция · реконструкция',
   color: '#277a64', trackForm: 'double', geometry: geometry.extension, reconstruction: true,
 })
-add('route.upsert', '1994-12-30', {
+add('infra.upsert', '2008-08-25', {
+  id: 'naryn-trolleybus-loop-raymilitsiya', kind: 'track', way: 'road', mode: 'trolleybus',
+  since: '2008-08-25', until: '2025-06-19', name: 'Разворотное кольцо «Раймилиция» · реконструкция',
+  color: '#277a64', trackForm: 'single_oneway', geometry: geometry.raymilitsiyaLoop, reconstruction: true,
+})
+add('route.upsert', '1994-10-30', {
+  id: 'naryn-trolleybus-1-opening', mode: 'trolleybus', number: '1',
+  name: 'Поворот к депо — улица Ленина', color: '#277a64',
+  segmentIds: ['naryn-trolleybus-wire-original', 'naryn-trolleybus-loop-lenina'],
+  since: '1994-10-30', until: '1994-12-12',
+})
+add('route.upsert', '1994-12-13', {
   id: 'naryn-trolleybus-1-original', mode: 'trolleybus', number: '1',
-  name: 'Автовокзал — улица Мукаша Исакова', color: '#277a64',
-  segmentIds: ['naryn-trolleybus-wire-original'], since: '1994-12-30', until: '2008-04-30',
+  name: 'Депо — улица Ленина', color: '#277a64',
+  segmentIds: ['naryn-trolleybus-wire-original', 'naryn-trolleybus-loop-lenina', 'naryn-trolleybus-wire-depot-access'],
+  since: '1994-12-13', until: '2008-04-30',
 })
 add('route.upsert', '2008-08-25', {
   id: 'naryn-trolleybus-1-extended', mode: 'trolleybus', number: '1',
   name: 'Улица Ленина — Раймилиция', color: '#277a64',
-  segmentIds: ['naryn-trolleybus-wire-original', 'naryn-trolleybus-wire-extension'],
+  segmentIds: ['naryn-trolleybus-loop-lenina', 'naryn-trolleybus-wire-original', 'naryn-trolleybus-wire-extension', 'naryn-trolleybus-loop-raymilitsiya'],
   since: '2008-08-25', until: '2024-05-31',
 })
 
-chronicle('1994-12-30', 'Открытие Нарынского троллейбуса', 'Открыта единственная линия по улице Ленина от автовокзала до улицы Мукаша Исакова. Источники расходятся в дне открытия; для набора принята дата 30 декабря, указанная местными материалами. Трасса реконструирована по современному коридору улицы.')
+chronicle('1994-10-30', 'Открытие Нарынского троллейбуса', 'Открылась первая линия от поворота к будущему депо до кольца «Улица Ленина». Дата и трасса приняты по подробной полевой истории предприятия; другие публикации называют 30 ноября или 30 декабря 1994 года.')
+chronicle('1994-12-13', 'Открытие троллейбусного депо', 'Открылись территория депо и служебная контактная линия. До продления 2008 года троллейбусы использовали депо для разворота; отдельных стрелок на линейной части не было.')
 chronicle('2008-05-01', 'Временная остановка движения', 'Весной движение приостановили. Во время перерыва контактную сеть продлили от улицы Мукаша Исакова к остановке «Раймилиция».')
-chronicle('2008-08-25', 'Продление к Раймилиции', 'В конце августа — начале сентября движение возобновилось по продлённой линии. Точная дата открытия участка в источниках не сохранилась; 25 августа используется как нижняя граница известного интервала.')
+chronicle('2008-08-25', 'Продление к Раймилиции', 'Между 25 и 30 августа движение возобновилось по новому участку от деповского узла до кольца «Раймилиция». В узле установили три стрелки и пересечение; точная дата открытия не сохранилась, поэтому используется нижняя граница известного интервала.')
 chronicle('2024-05-31', 'Последний день движения', 'Троллейбусное движение остановилось из-за реконструкции улицы Ленина и неисправности тяговой подстанции.')
 chronicle('2025-03-04', 'Решение о закрытии системы', 'Городские власти решили не восстанавливать троллейбус и демонтировать контактную сеть, заменив его автобусами.')
+chronicle('2025-06-19', 'Почти полный демонтаж сети', 'К этой дате город сообщил о демонтаже 95 процентов контактных проводов и опор. Историческая инфраструктура на карте сохраняется до этой контрольной даты отдельно от маршрута, прекратившего работу годом ранее.')
 
 const client = await pool.connect()
 try {
@@ -65,20 +95,22 @@ try {
      ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, aliases = EXCLUDED.aliases,
        lat = EXCLUDED.lat, lng = EXCLUDED.lng, zoom = EXCLUDED.zoom,
        valid_from = EXCLUDED.valid_from, valid_to = EXCLUDED.valid_to`,
-    [system, 'Naryn', ['Нарын'], 41.4277, 75.9914, '1994-12-30', '2024-05-31'],
+    [system, 'Naryn', ['Нарын'], 41.4277, 75.9914, '1994-10-30', '2024-05-31'],
   )
+  await client.query('DELETE FROM transport_system_names WHERE system_id = $1', [system])
   await client.query(
     `INSERT INTO transport_system_names (system_id, name, valid_from, valid_to)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (system_id, valid_from) DO UPDATE SET name = EXCLUDED.name, valid_to = EXCLUDED.valid_to`,
-    [system, 'Naryn', '1994-12-30', '2024-05-31'],
+    [system, 'Naryn', '1994-10-30', '2024-05-31'],
   )
+  await client.query('DELETE FROM transport_system_localities WHERE system_id = $1', [system])
   await client.query(
     `INSERT INTO transport_system_localities (system_id, locality_id, name, role, valid_from, valid_to)
      VALUES ($1, $2, $3, 'core', $4, $5)
      ON CONFLICT (system_id, locality_id) DO UPDATE SET name = EXCLUDED.name, role = EXCLUDED.role,
        valid_from = EXCLUDED.valid_from, valid_to = EXCLUDED.valid_to`,
-    [system, city, 'Naryn', '1994-12-30', '2024-05-31'],
+    [system, city, 'Naryn', '1994-10-30', '2024-05-31'],
   )
   await client.query('DELETE FROM events WHERE actor = $1', [actor])
   for (const event of events) {
