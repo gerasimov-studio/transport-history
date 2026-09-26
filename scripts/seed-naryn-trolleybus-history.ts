@@ -23,12 +23,12 @@ const chronicle = (date: string, title: string, summary: string) => add('chronic
 add('infra.upsert', '1994-12-30', {
   id: 'naryn-trolleybus-wire-original', kind: 'track', way: 'road', mode: 'trolleybus',
   since: '1994-12-30', until: '2024-05-31', name: 'Автовокзал — улица Мукаша Исакова · реконструкция',
-  color: '#277a64', trackForm: 'single_both', geometry: geometry.original, reconstruction: true,
+  color: '#277a64', trackForm: 'double', geometry: geometry.original, reconstruction: true,
 })
 add('infra.upsert', '2008-08-25', {
   id: 'naryn-trolleybus-wire-extension', kind: 'track', way: 'road', mode: 'trolleybus',
   since: '2008-08-25', until: '2024-05-31', name: 'Улица Мукаша Исакова — Раймилиция · реконструкция',
-  color: '#277a64', trackForm: 'single_both', geometry: geometry.extension, reconstruction: true,
+  color: '#277a64', trackForm: 'double', geometry: geometry.extension, reconstruction: true,
 })
 add('route.upsert', '1994-12-30', {
   id: 'naryn-trolleybus-1-original', mode: 'trolleybus', number: '1',

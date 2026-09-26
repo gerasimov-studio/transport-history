@@ -78,14 +78,14 @@ for (const wire of wires) {
     .sort()[0] ?? '2024-09-01'
   add('infra.upsert', '2024-09-01', {
     id: infraId(wire.id), kind: 'track', way: 'road', mode: 'trolleybus', since,
-    name: `Контактная сеть · OSM ${wire.id}`, color: '#2e7d4f', trackForm: 'single_both',
+    name: `Контактная сеть · OSM ${wire.id}`, color: '#2e7d4f', trackForm: 'double',
     geometry: { type: 'LineString', coordinates: wire.coordinates },
   })
 }
 add('infra.upsert', '1982-12-22', {
   id: nppInfraId, kind: 'track', way: 'road', mode: 'trolleybus', since: '1982-12-22',
   name: 'Контактная сеть к Балаковской АЭС · реконструкция', color: '#2e7d4f',
-  trackForm: 'single_both', geometry: nppWire,
+  trackForm: 'double', geometry: nppWire,
   reconstruction: true,
 })
 add('route.upsert', '1982-12-22', {
