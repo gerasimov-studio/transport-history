@@ -25,6 +25,7 @@ const initialModes: Record<TransportMode, boolean> = {
 }
 
 const today = new Date().toISOString().slice(0, 10)
+const emptyDates: string[] = []
 
 export function ViewerPage() {
   const { t } = useI18n()
@@ -73,7 +74,7 @@ export function ViewerPage() {
     return today
   }, [date])
   const { state, error: stateError } = useViewportState(viewport, selectedDate, workspaceId)
-  const dates = state?.dates?.length ? state.dates : catalogDates
+  const dates = state ? (state.dates ?? emptyDates) : catalogDates
   const timelineDates = useMemo(
     () => [...new Set([...dates.filter((item) => item <= today), today])].sort(),
     [dates],
