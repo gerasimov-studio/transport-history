@@ -1,3 +1,31 @@
+import L from 'leaflet'
+
+export const DOUBLE_TRACK_DETAIL_ZOOM = 14
+
+export function offsetPolyline(
+  coords: [number, number][],
+  offsetPixels: number,
+  zoom: number,
+): [number, number][] {
+  if (coords.length < 2 || offsetPixels === 0) {
+    return coords
+  }
+  const points = coords.map(([lng, lat]) => L.CRS.EPSG3857.latLngToPoint(L.latLng(lat, lng), zoom))
+  return points.map((point, index) => {
+    const previous = points[Math.max(0, index - 1)]!
+    const next = points[Math.min(points.length - 1, index + 1)]!
+    const dx = next.x - previous.x
+    const dy = next.y - previous.y
+    const length = Math.hypot(dx, dy)
+    if (length === 0) {
+      return coords[index]!
+    }
+    const shifted = L.point(point.x - (dy / length) * offsetPixels, point.y + (dx / length) * offsetPixels)
+    const latLng = L.CRS.EPSG3857.pointToLatLng(shifted, zoom)
+    return [latLng.lng, latLng.lat]
+  })
+}
+
 export function polylineLength(coords: [number, number][]): number {
   let total = 0
   for (let index = 1; index < coords.length; index += 1) {

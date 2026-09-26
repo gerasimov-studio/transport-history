@@ -1,6 +1,6 @@
 import L from 'leaflet'
 import { CircleMarker, LayerGroup, Marker, Polyline, Popup } from 'react-leaflet'
-import { alongPolyline } from './geometry'
+import { alongPolyline, DOUBLE_TRACK_DETAIL_ZOOM, offsetPolyline } from './geometry'
 import { strokeScale } from './lod'
 import { type NetworkFeature, type NodeKind } from '../types'
 import { useI18n, type Locale } from '../i18n'
@@ -206,6 +206,35 @@ function TrackLine({
   }
 
   if (form === 'double') {
+    if (zoom >= DOUBLE_TRACK_DETAIL_ZOOM) {
+      const separation = (selected ? 3.2 : 2.6) * strokeScale(zoom)
+      const trackWeight = Math.max(1.35, (selected ? 2.8 : 2.1) * strokeScale(zoom))
+      const trackLines = [-separation, separation].map((offset) =>
+        offsetPolyline(coordinates, offset, zoom).map(([lng, lat]) => [lat, lng] as [number, number]),
+      )
+      return (
+        <>
+          {casing}
+          {trackLines.map((trackPositions, index) => (
+            <Polyline
+              key={index}
+              positions={trackPositions}
+              pathOptions={{
+                color: paint.color,
+                weight: trackWeight,
+                opacity: paint.opacity,
+                dashArray: paint.dashArray ?? (isTunnel ? '10 8' : undefined),
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+              eventHandlers={events}
+            >
+              {index === 0 ? popup : null}
+            </Polyline>
+          ))}
+        </>
+      )
+    }
     return (
       <>
         {casing}

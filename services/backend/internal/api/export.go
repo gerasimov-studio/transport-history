@@ -152,6 +152,33 @@ func toPoints(v any) [][2]float64 {
 	return out
 }
 
+func offsetScreenLine(points [][2]float64, offset float64) [][2]float64 {
+	if len(points) < 2 || offset == 0 {
+		return points
+	}
+	out := make([][2]float64, len(points))
+	for i, point := range points {
+		previous := points[max(0, i-1)]
+		next := points[min(len(points)-1, i+1)]
+		dx, dy := next[0]-previous[0], next[1]-previous[1]
+		length := math.Hypot(dx, dy)
+		if length == 0 {
+			out[i] = point
+			continue
+		}
+		out[i] = [2]float64{point[0] - dy/length*offset, point[1] + dx/length*offset}
+	}
+	return out
+}
+
+func svgPolylinePoints(points [][2]float64) string {
+	out := make([]string, 0, len(points))
+	for _, point := range points {
+		out = append(out, fmt.Sprintf("%.2f,%.2f", point[0], point[1]))
+	}
+	return strings.Join(out, " ")
+}
+
 func (s *Server) buildSVG(r *http.Request, features []domain.Feature, b bounds, zoom float64, width, height int, basemap bool, places []map[string]any) (string, error) {
 	left, top := worldPixel(b.West, b.North, zoom)
 	right, bottom := worldPixel(b.East, b.South, zoom)
@@ -217,22 +244,32 @@ func (s *Server) buildSVG(r *http.Request, features []domain.Feature, b bounds, 
 			continue
 		}
 		for _, line := range lines {
-			pts := []string{}
+			points := make([][2]float64, 0, len(line))
 			for _, p := range line {
 				x, y := project(p)
-				pts = append(pts, fmt.Sprintf("%.2f,%.2f", x, y))
+				points = append(points, [2]float64{x, y})
 			}
 			d := ""
 			if dash != "" {
 				d = ` stroke-dasharray="` + dash + `"`
 			}
-			shapes = append(shapes, fmt.Sprintf(`<polyline points="%s" fill="none" stroke="%s" stroke-opacity="%.2f" stroke-width="%.2f"%s stroke-linecap="round" stroke-linejoin="round"/>`, strings.Join(pts, " "), color, opacity, stroke, d))
-			if form == "double" {
+			if form == "double" && zoom >= 14 {
+				separation := 2.6 * scale
+				trackStroke := math.Max(1.35, 2.1*scale)
+				for _, offset := range []float64{-separation, separation} {
+					shifted := svgPolylinePoints(offsetScreenLine(points, offset))
+					shapes = append(shapes, fmt.Sprintf(`<polyline points="%s" fill="none" stroke="%s" stroke-opacity="%.2f" stroke-width="%.2f"%s stroke-linecap="round" stroke-linejoin="round"/>`, shifted, color, opacity, trackStroke, d))
+				}
+			} else {
+				joined := svgPolylinePoints(points)
+				shapes = append(shapes, fmt.Sprintf(`<polyline points="%s" fill="none" stroke="%s" stroke-opacity="%.2f" stroke-width="%.2f"%s stroke-linecap="round" stroke-linejoin="round"/>`, joined, color, opacity, stroke, d))
+			}
+			if form == "double" && zoom < 14 {
 				inner := .35
 				if route {
 					inner = .9
 				}
-				shapes = append(shapes, fmt.Sprintf(`<polyline points="%s" fill="none" stroke="#12171c" stroke-opacity="%.2f" stroke-width="%.2f"%s stroke-linecap="round" stroke-linejoin="round"/>`, strings.Join(pts, " "), inner, math.Max(1, 1.5*scale), d))
+				shapes = append(shapes, fmt.Sprintf(`<polyline points="%s" fill="none" stroke="#12171c" stroke-opacity="%.2f" stroke-width="%.2f"%s stroke-linecap="round" stroke-linejoin="round"/>`, svgPolylinePoints(points), inner, math.Max(1, 1.5*scale), d))
 			}
 		}
 	}
