@@ -1,11 +1,11 @@
 /* oxlint-disable react/set-state-in-effect -- server session drives page data */
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useSession } from '../data/useSession'
-import { api } from '../lib/api'
-import { LOCALES, useI18n, type Locale } from '../i18n'
-import { domain } from '../domainI18n'
-import type { TransportMode } from '../types'
+import { useSession } from '../../data/useSession'
+import { api } from '../../lib/api'
+import { LOCALES, useI18n, type Locale } from '../../i18n'
+import { domain } from '../../domainI18n'
+import type { TransportMode } from '../../types'
 
 type Workspace = {
   id: string

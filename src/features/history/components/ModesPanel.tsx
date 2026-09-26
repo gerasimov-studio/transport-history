@@ -3,8 +3,8 @@ import {
   TRANSPORT_WAYS,
   modesForWay,
   type TransportMode,
-} from '../types'
-import { useI18n } from '../i18n'
+} from '../../../types'
+import { useI18n } from '../../../i18n'
 
 type ModesPanelProps = {
   modes: Record<TransportMode, boolean>

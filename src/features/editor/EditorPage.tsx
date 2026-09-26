@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { EditorMap, type DraftFeature, type DrawTool } from '../components/editor/EditorMap'
-import { StudioPanel, type DraftNetwork } from '../components/editor/StudioPanel'
-import { useCatalog } from '../data/useCatalog'
-import { useSession } from '../data/useSession'
-import { api } from '../lib/api'
-import { useI18n } from '../i18n'
+import { EditorMap, type DraftFeature, type DrawTool } from './components/EditorMap'
+import { StudioPanel, type DraftNetwork } from './components/StudioPanel'
+import { useCatalog } from '../../data/useCatalog'
+import { useSession } from '../../data/useSession'
+import { api } from '../../lib/api'
+import { useI18n } from '../../i18n'
 import {
   MODE_COLORS,
   WAY_COLORS,
@@ -33,7 +33,7 @@ import {
   type TrackGrade,
   type TransportMode,
   type TransportWay,
-} from '../types'
+} from '../../types'
 
 function today() {
   return new Date().toISOString().slice(0, 10)

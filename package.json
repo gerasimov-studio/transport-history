@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && npm run size:check",
+    "size:check": "node scripts/check-bundle-size.mjs",
     "data:metro": "node --experimental-strip-types --no-warnings scripts/export-metro-snapshots.ts",
     "data:sarajevo-tram": "node --experimental-strip-types --no-warnings scripts/seed-sarajevo-tram-history.ts",
     "data:sarajevo-trolleybus": "node --experimental-strip-types --no-warnings scripts/seed-sarajevo-trolleybus-history.ts",

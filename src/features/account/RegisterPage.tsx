@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useI18n } from '../i18n'
-import { api } from '../lib/api'
+import { useI18n } from '../../i18n'
+import { api } from '../../lib/api'
 
 export function RegisterPage() {
   const { t } = useI18n()

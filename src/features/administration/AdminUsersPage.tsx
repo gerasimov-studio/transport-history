@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useSession } from '../data/useSession'
-import { useI18n } from '../i18n'
-import { api } from '../lib/api'
+import { useSession } from '../../data/useSession'
+import { useI18n } from '../../i18n'
+import { api } from '../../lib/api'
 
 type AccountUser = { id: number; username: string; role: 'user' | 'moderator' | 'superuser' }
 

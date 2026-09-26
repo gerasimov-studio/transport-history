@@ -18,6 +18,17 @@ The current request flow is:
 browser -> nginx -> Go API -> PostgreSQL/PostGIS
 ```
 
+## Frontend boundaries
+
+The browser remains one React SPA. Route features live under `src/features` and
+are loaded on demand: history, editor, account and scenarios, and
+administration. Shared map primitives, API access, localization and domain
+types stay outside feature packages.
+
+`npm run build` generates a chunk report and enforces a 200 KiB gzip JavaScript
+budget for the history route's complete initial dependency graph. It also fails
+if editor, account or administration code leaks into that graph.
+
 ## Functional boundaries
 
 Code should be organised by domain even while it shares a deployable binary:

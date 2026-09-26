@@ -21,12 +21,12 @@ import {
   type TrackGrade,
   type TransportMode,
   type TransportWay,
-} from '../../types'
-import { Timeline } from '../Timeline'
-import { YearRangeSlider } from '../YearRangeSlider'
+} from '../../../types'
+import { Timeline } from '../../../components/Timeline'
+import { YearRangeSlider } from '../../../components/YearRangeSlider'
 import type { DrawTool } from './EditorMap'
-import { useI18n, type Locale } from '../../i18n'
-import { domain } from '../../domainI18n'
+import { useI18n, type Locale } from '../../../i18n'
+import { domain } from '../../../domainI18n'
 
 export type DraftNetwork = {
   city: string

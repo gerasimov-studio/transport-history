@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { MODE_COLORS, type RouteEntity, type TransportMode } from '../types'
-import { useI18n } from '../i18n'
-import { domain } from '../domainI18n'
+import { MODE_COLORS, type RouteEntity, type TransportMode } from '../../../types'
+import { useI18n } from '../../../i18n'
+import { domain } from '../../../domainI18n'
 
 type RoutesPanelProps = {
   routes: RouteEntity[]

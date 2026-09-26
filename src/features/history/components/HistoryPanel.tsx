@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { formatSnapshotDate } from '../data/snapshots'
-import type { Snapshot } from '../types'
-import { useI18n } from '../i18n'
+import { formatSnapshotDate } from '../../../data/snapshots'
+import type { Snapshot } from '../../../types'
+import { useI18n } from '../../../i18n'
 
 type HistoryPanelProps = {
   date: string | null
