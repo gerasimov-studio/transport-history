@@ -109,3 +109,24 @@ func TestValidateInfraRejectsUnlinkedStationEntrance(t *testing.T) {
 		t.Fatal("expected entrance without stationId to be rejected")
 	}
 }
+
+func TestStopKeepsInfrastructureLink(t *testing.T) {
+	items := []json.RawMessage{raw(`{"id":"central-stop","kind":"stop","trackId":"main-wire","stopGroupId":"central","stopDirection":"forward","mode":"trolleybus","name":"Central stop","color":"#277a64","geometry":{"type":"Point","coordinates":[1,2]}}`)}
+	result, err := ValidateInfra(items, "road", "2000-01-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result[0].TrackID != "main-wire" {
+		t.Fatalf("track link was lost: %#v", result[0])
+	}
+	if result[0].StopGroupID != "central" || result[0].StopDirection != "forward" {
+		t.Fatalf("stop platform metadata was lost: %#v", result[0])
+	}
+}
+
+func TestStopRejectsInvalidDirection(t *testing.T) {
+	items := []json.RawMessage{raw(`{"id":"central-stop","kind":"stop","stopDirection":"sideways","mode":"trolleybus","name":"Central stop","color":"#277a64","geometry":{"type":"Point","coordinates":[1,2]}}`)}
+	if _, err := ValidateInfra(items, "road", "2000-01-01"); err == nil {
+		t.Fatal("expected invalid stop direction to be rejected")
+	}
+}

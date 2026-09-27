@@ -48,6 +48,32 @@ function newRouteId(mode: string) {
   return `route:${mode}:${crypto.randomUUID()}`
 }
 
+function pointSegmentPlacement(point: [number, number], start: [number, number], end: [number, number]) {
+  const dx = end[0] - start[0]
+  const dy = end[1] - start[1]
+  if (dx === 0 && dy === 0) return { point: start, distance: (point[0] - start[0]) ** 2 + (point[1] - start[1]) ** 2 }
+  const t = Math.max(0, Math.min(1, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / (dx * dx + dy * dy)))
+  const snapped: [number, number] = [start[0] + t * dx, start[1] + t * dy]
+  return { point: snapped, distance: (point[0] - snapped[0]) ** 2 + (point[1] - snapped[1]) ** 2 }
+}
+
+function nearestTrackPlacement(infra: InfraEntity[], point: [number, number], mode: TransportMode) {
+  let nearest: { id: string; point: [number, number]; distance: number } | undefined
+  for (const entity of infra) {
+    if (entity.kind !== 'track' || entity.mode !== mode) continue
+    const lines = entity.geometry.type === 'LineString'
+      ? [entity.geometry.coordinates]
+      : entity.geometry.type === 'MultiLineString' ? entity.geometry.coordinates : []
+    for (const line of lines) {
+      for (let index = 1; index < line.length; index += 1) {
+        const placement = pointSegmentPlacement(point, line[index - 1], line[index])
+        if (!nearest || placement.distance < nearest.distance) nearest = { id: entity.id, ...placement }
+      }
+    }
+  }
+  return nearest
+}
+
 function trolleyLegs(route: RouteEntity) {
   return route.legs ?? (route.segmentIds.length ? [{ type: 'wire' as const, segmentIds: route.segmentIds }] : [])
 }
@@ -122,6 +148,9 @@ function infraToFeature(entity: InfraEntity): DraftFeature {
       nodeKind: entity.nodeKind,
       facilityKind: entity.facilityKind,
       stationId: entity.stationId,
+      trackId: entity.trackId,
+      stopGroupId: entity.stopGroupId,
+      stopDirection: entity.stopDirection,
       layer: 'infra',
       infraId: entity.id,
       way: infraWay(entity),
@@ -467,6 +496,18 @@ export function EditorPage() {
     if (tool === 'stop') {
       const kind = isHeavyRail(draft.mode) ? 'station' : 'stop'
       const id = newInfraId(draft.way, kind)
+      const placement = kind === 'stop' ? nearestTrackPlacement(draft.infra, [lng, lat], draft.mode) : undefined
+      const trackId = placement?.id
+      const pairedStop = kind === 'stop'
+        ? draft.infra
+            .filter((entity) => entity.kind === 'stop' && entity.trackId === trackId && entity.geometry.type === 'Point')
+            .map((entity) => {
+              const coordinates = entity.geometry.coordinates as [number, number]
+              return { entity, distance: Math.hypot(coordinates[0] - lng, coordinates[1] - lat) }
+            })
+            .filter(({ distance }) => distance < 0.00065)
+            .sort((left, right) => left.distance - right.distance)[0]?.entity
+        : undefined
       const entity: InfraEntity = {
         id,
         kind,
@@ -479,7 +520,10 @@ export function EditorPage() {
         name: t(kind === 'station' ? 'studio.station' : 'studio.stop'),
         color: MODE_COLORS[draft.mode],
         trackForm,
-        geometry: { type: 'Point', coordinates: [lng, lat] },
+        trackId,
+        stopGroupId: kind === 'stop' ? pairedStop?.stopGroupId ?? id : undefined,
+        stopDirection: kind === 'stop' ? pairedStop?.stopDirection === 'forward' ? 'backward' : 'forward' : undefined,
+        geometry: { type: 'Point', coordinates: placement?.point ?? [lng, lat] },
       }
       setDraft((current) => (current ? { ...current, infra: [...current.infra, entity] } : current))
       setSelectedInfraId(id)
@@ -885,9 +929,16 @@ export function EditorPage() {
           })
         }}
         onMovePoint={(key, coord) =>
-          updateInfra(key, (entity) =>
-            entity.geometry.type === 'Point' ? { ...entity, geometry: { type: 'Point', coordinates: coord } } : entity,
-          )
+          updateInfra(key, (entity) => {
+            if (entity.geometry.type !== 'Point') return entity
+            if (entity.kind !== 'stop') return { ...entity, geometry: { type: 'Point', coordinates: coord } }
+            const placement = nearestTrackPlacement(draft.infra, coord, entity.mode ?? draft.mode)
+            return {
+              ...entity,
+              trackId: placement?.id ?? entity.trackId,
+              geometry: { type: 'Point', coordinates: placement?.point ?? coord },
+            }
+          })
         }
         onViewportChange={setViewport}
       />

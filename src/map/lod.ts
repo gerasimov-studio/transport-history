@@ -6,6 +6,7 @@ import type { CatalogCity, NetworkFeature } from '../types'
 export const NETWORK_MIN_ZOOM = 11
 export const STOPS_MIN_ZOOM = 14
 export const ENTRANCES_MIN_ZOOM = 16
+export const STOP_DIRECTION_DETAIL_ZOOM = 16
 export const NODES_MIN_ZOOM = 15
 export const LABELS_MIN_ZOOM = 12
 export const CITY_RADIUS_M = 55_000

@@ -9,9 +9,23 @@ type HistoryPanelProps = {
   events?: Snapshot[]
   routeLabels?: Record<string, string[]>
   onSelectDate?: (date: string) => void
+  showChanges?: boolean
+  changesAvailable?: boolean
+  changesFrom?: string | null
+  onShowChanges?: (show: boolean) => void
 }
 
-export function HistoryPanel({ date, snapshots, events = [], routeLabels = {}, onSelectDate }: HistoryPanelProps) {
+export function HistoryPanel({
+  date,
+  snapshots,
+  events = [],
+  routeLabels = {},
+  onSelectDate,
+  showChanges = false,
+  changesAvailable = false,
+  changesFrom,
+  onShowChanges,
+}: HistoryPanelProps) {
   const [open, setOpen] = useState(true)
   const { t } = useI18n()
   const primary = snapshots[0]
@@ -57,6 +71,19 @@ export function HistoryPanel({ date, snapshots, events = [], routeLabels = {}, o
         <div className="history-panel__body">
           <p className="history-panel__year">{year}</p>
           {date ? <p className="history-panel__date">{formatSnapshotDate(date)}</p> : null}
+          {changesFrom ? (
+            <label className={showChanges ? 'highlight-toggle is-on' : 'highlight-toggle'}>
+              <input
+                type="checkbox"
+                checked={showChanges}
+                onChange={(event) => onShowChanges?.(event.target.checked)}
+              />
+              <span>
+                {t('viewer.changes')}
+                <small>{changesAvailable ? formatSnapshotDate(changesFrom) : t('viewer.noDifferences')}</small>
+              </span>
+            </label>
+          ) : null}
           {eventDates.length > 1 ? (
             <nav className="history-panel__nav" aria-label={t('history.events')}>
               <button type="button" disabled={!previousEvent} onClick={() => previousEvent && onSelectDate?.(previousEvent)}>

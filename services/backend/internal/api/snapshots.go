@@ -17,9 +17,9 @@ type snapshotInput struct {
 	Features                         []json.RawMessage `json:"features"`
 }
 type validatedSnapshotFeature struct {
-	Kind, LineID, Number, Name, Color, TrackForm, FacilityKind, StationID string
-	NodeKind                                                              *string
-	Geometry                                                              domain.Geometry
+	Kind, LineID, Number, Name, Color, TrackForm, FacilityKind, StationID, TrackID, StopGroupID, StopDirection string
+	NodeKind                                                                                                   *string
+	Geometry                                                                                                   domain.Geometry
 }
 
 func snapshotKey(city, mode, date string) string { return city + "-" + mode + "-" + date }
@@ -40,15 +40,18 @@ func validateSnapshotFeatures(input snapshotInput) ([]validatedSnapshotFeature, 
 	for i, raw := range input.Features {
 		var v struct {
 			Properties struct {
-				Kind         string `json:"kind"`
-				LineID       string `json:"lineId"`
-				Number       string `json:"number"`
-				Name         string `json:"name"`
-				Color        string `json:"color"`
-				TrackForm    string `json:"trackForm"`
-				NodeKind     string `json:"nodeKind"`
-				FacilityKind string `json:"facilityKind"`
-				StationID    string `json:"stationId"`
+				Kind          string `json:"kind"`
+				LineID        string `json:"lineId"`
+				Number        string `json:"number"`
+				Name          string `json:"name"`
+				Color         string `json:"color"`
+				TrackForm     string `json:"trackForm"`
+				NodeKind      string `json:"nodeKind"`
+				FacilityKind  string `json:"facilityKind"`
+				StationID     string `json:"stationId"`
+				TrackID       string `json:"trackId"`
+				StopGroupID   string `json:"stopGroupId"`
+				StopDirection string `json:"stopDirection"`
 			} `json:"properties"`
 			Geometry domain.Geometry `json:"geometry"`
 		}
@@ -83,6 +86,9 @@ func validateSnapshotFeatures(input snapshotInput) ([]validatedSnapshotFeature, 
 		}
 		if p.Kind == "stop" && (input.Mode == "metro" || input.Mode == "railway") {
 			return nil, fmt.Errorf("feature %d: heavy rail stop", i)
+		}
+		if p.StopDirection != "" && p.StopDirection != "forward" && p.StopDirection != "backward" && p.StopDirection != "both" {
+			return nil, fmt.Errorf("feature %d: stopDirection", i)
 		}
 		if p.Kind == "station" && input.Mode != "metro" && input.Mode != "railway" {
 			return nil, fmt.Errorf("feature %d: station mode", i)
@@ -123,7 +129,7 @@ func validateSnapshotFeatures(input snapshotInput) ([]validatedSnapshotFeature, 
 		if color == "" {
 			color = "#c45c26"
 		}
-		out = append(out, validatedSnapshotFeature{p.Kind, lineID, number, name, color, form, p.FacilityKind, p.StationID, nk, v.Geometry})
+		out = append(out, validatedSnapshotFeature{p.Kind, lineID, number, name, color, form, p.FacilityKind, p.StationID, p.TrackID, p.StopGroupID, p.StopDirection, nk, v.Geometry})
 	}
 	return out, nil
 }
@@ -132,7 +138,7 @@ func (s *Server) snapshotNetwork(w http.ResponseWriter, r *http.Request) {
 	id := pathID(snapshotNetworkPath, r.URL.Path)
 	var city, mode string
 	_ = s.pool.QueryRow(r.Context(), `SELECT city_id,mode FROM snapshots WHERE id=$1`, id).Scan(&city, &mode)
-	rows, err := s.pool.Query(r.Context(), `SELECT kind,line_id,name,color,track_form,node_kind,facility_kind,station_id,ST_AsGeoJSON(geom)::json FROM features WHERE snapshot_id=$1 ORDER BY id`, id)
+	rows, err := s.pool.Query(r.Context(), `SELECT kind,line_id,name,color,track_form,node_kind,facility_kind,station_id,track_id,stop_group_id,stop_direction,ST_AsGeoJSON(geom)::json FROM features WHERE snapshot_id=$1 ORDER BY id`, id)
 	if err != nil {
 		s.fail(w, err)
 		return
@@ -141,12 +147,12 @@ func (s *Server) snapshotNetwork(w http.ResponseWriter, r *http.Request) {
 	features := []map[string]any{}
 	for rows.Next() {
 		var kind, line, name, color, form string
-		var node, facility, station *string
+		var node, facility, station, track, stopGroup, stopDirection *string
 		var geom json.RawMessage
-		if rows.Scan(&kind, &line, &name, &color, &form, &node, &facility, &station, &geom) == nil {
+		if rows.Scan(&kind, &line, &name, &color, &form, &node, &facility, &station, &track, &stopGroup, &stopDirection, &geom) == nil {
 			var geometry any
 			_ = json.Unmarshal(geom, &geometry)
-			features = append(features, map[string]any{"type": "Feature", "properties": map[string]any{"kind": kind, "mode": fallback(mode, "tram"), "lineId": line, "number": numberFromLineID(line, city, mode), "name": name, "color": color, "trackForm": fallback(form, "double"), "nodeKind": node, "facilityKind": facility, "stationId": station}, "geometry": geometry})
+			features = append(features, map[string]any{"type": "Feature", "properties": map[string]any{"kind": kind, "mode": fallback(mode, "tram"), "lineId": line, "number": numberFromLineID(line, city, mode), "name": name, "color": color, "trackForm": fallback(form, "double"), "nodeKind": node, "facilityKind": facility, "stationId": station, "trackId": track, "stopGroupId": stopGroup, "stopDirection": stopDirection}, "geometry": geometry})
 		}
 	}
 	httpjson.Write(w, 200, map[string]any{"type": "FeatureCollection", "features": features})
@@ -270,7 +276,7 @@ func (s *Server) writeSnapshot(r *http.Request, id string, input snapshotInput, 
 	}
 	for _, v := range features {
 		geom, _ := json.Marshal(v.Geometry)
-		_, err = tx.Exec(r.Context(), `INSERT INTO features(snapshot_id,kind,line_id,name,color,track_form,node_kind,facility_kind,station_id,geom)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,ST_SetSRID(ST_GeomFromGeoJSON($10),4326))`, id, v.Kind, v.LineID, v.Name, v.Color, v.TrackForm, v.NodeKind, v.FacilityKind, v.StationID, geom)
+		_, err = tx.Exec(r.Context(), `INSERT INTO features(snapshot_id,kind,line_id,name,color,track_form,node_kind,facility_kind,station_id,track_id,stop_group_id,stop_direction,geom)VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,ST_SetSRID(ST_GeomFromGeoJSON($13),4326))`, id, v.Kind, v.LineID, v.Name, v.Color, v.TrackForm, v.NodeKind, v.FacilityKind, v.StationID, v.TrackID, v.StopGroupID, v.StopDirection, geom)
 		if err != nil {
 			return err
 		}

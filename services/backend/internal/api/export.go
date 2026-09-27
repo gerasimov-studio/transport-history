@@ -19,6 +19,9 @@ import (
 func clamp(v, lo, hi float64) float64 { return math.Max(lo, math.Min(hi, v)) }
 
 func (s *Server) exportSVG(w http.ResponseWriter, r *http.Request) {
+	if s.requireUser(w, r) == nil {
+		return
+	}
 	q := r.URL.Query()
 	b, ok := parseBounds(q.Get("bbox"))
 	date := strings.TrimSpace(q.Get("date"))

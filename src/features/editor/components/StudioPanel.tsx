@@ -18,6 +18,7 @@ import {
   type InfraEntity,
   type NodeKind,
   type RouteEntity,
+  type StopDirection,
   type TrackForm,
   type TrackGrade,
   type TransportMode,
@@ -51,6 +52,7 @@ type InfraPatch = {
   level?: number
   since?: string
   until?: string
+  stopDirection?: StopDirection
 }
 
 type RoutePatch = {
@@ -579,6 +581,19 @@ export function StudioPanel({
                 </label>
                 {selectedInfra.kind === 'track' ? (
                   <p className="studio-hint">{domain.trackForm(locale, selectedInfra.trackForm, draft.way, selectedInfra.mode ?? draft.mode)}</p>
+                ) : null}
+                {selectedInfra.kind === 'stop' ? (
+                  <label className="studio-field">
+                    {t('studio.stopDirection')}
+                    <select
+                      value={selectedInfra.stopDirection ?? 'forward'}
+                      onChange={(event) => onChangeInfra(selectedInfra.id, { stopDirection: event.target.value as StopDirection })}
+                    >
+                      <option value="forward">{t('studio.stopForward')}</option>
+                      <option value="backward">{t('studio.stopBackward')}</option>
+                      <option value="both">{t('studio.stopBoth')}</option>
+                    </select>
+                  </label>
                 ) : null}
                 <div className="studio-tools">
                   {selectedInfra.geometry.type === 'LineString' || selectedInfra.geometry.type === 'Polygon' ? (

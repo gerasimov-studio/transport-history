@@ -10,7 +10,7 @@ type Event = { type: string; date: string; payload: Record<string, unknown> }
 
 const geometry = JSON.parse(
   readFileSync(new URL('../db/seed/naryn-trolleybus-osm.json', import.meta.url), 'utf8'),
-) as { original: LineString; extension: LineString; depotAccess: LineString; leninaLoop: LineString; raymilitsiyaLoop: LineString; depotArea: Polygon }
+) as { original: LineString; extension: LineString; depotAccess: LineString; depotArea: Polygon }
 const pool = new pg.Pool({ connectionString: databaseUrl })
 const actor = 'seed:naryn-trolleybus-history-v1'
 const city = 'naryn'
@@ -41,20 +41,37 @@ const stops: Array<{ id: string; name: string; point: [number, number]; since: s
   { id: 'lenina', name: 'Улица Ленина', point: [76.0178241, 41.4235411], since: '1994-10-30' },
 ]
 
+function snapToLine(point: [number, number], line: LineString): [number, number] {
+  let nearest = line.coordinates[0]
+  let nearestDistance = Number.POSITIVE_INFINITY
+  for (let index = 1; index < line.coordinates.length; index += 1) {
+    const start = line.coordinates[index - 1]
+    const end = line.coordinates[index]
+    const dx = end[0] - start[0]
+    const dy = end[1] - start[1]
+    const lengthSquared = dx * dx + dy * dy
+    const t = lengthSquared
+      ? Math.max(0, Math.min(1, ((point[0] - start[0]) * dx + (point[1] - start[1]) * dy) / lengthSquared))
+      : 0
+    const candidate: [number, number] = [start[0] + t * dx, start[1] + t * dy]
+    const distance = (candidate[0] - point[0]) ** 2 + (candidate[1] - point[1]) ** 2
+    if (distance < nearestDistance) {
+      nearest = candidate
+      nearestDistance = distance
+    }
+  }
+  return nearest
+}
+
 add('infra.upsert', '1994-10-30', {
   id: 'naryn-trolleybus-wire-original', kind: 'track', way: 'road', mode: 'trolleybus',
   since: '1994-10-30', until: '2025-06-19', name: 'Улица Ленина — поворот к депо · реконструкция',
-  color: '#277a64', trackForm: 'double', geometry: geometry.original, reconstruction: true,
-})
-add('infra.upsert', '1994-10-30', {
-  id: 'naryn-trolleybus-loop-lenina', kind: 'track', way: 'road', mode: 'trolleybus',
-  since: '1994-10-30', until: '2025-06-19', name: 'Разворотное кольцо «Улица Ленина» · реконструкция',
-  color: '#277a64', trackForm: 'single_oneway', geometry: geometry.leninaLoop, reconstruction: true,
+  color: '#277a64', trackForm: 'single_oneway', geometry: geometry.original, reconstruction: true,
 })
 add('infra.upsert', '1994-12-13', {
   id: 'naryn-trolleybus-wire-depot-access', kind: 'track', way: 'road', mode: 'trolleybus',
   since: '1994-12-13', until: '2025-06-19', name: 'Служебная линия в депо · реконструкция',
-  color: '#277a64', trackForm: 'double', geometry: geometry.depotAccess, reconstruction: true,
+  color: '#277a64', trackForm: 'single_oneway', geometry: geometry.depotAccess, reconstruction: true,
 })
 add('infra.upsert', '1994-12-13', {
   id: 'naryn-trolleybus-depot', kind: 'area', facilityKind: 'depot', way: 'road', mode: 'trolleybus',
@@ -64,34 +81,50 @@ add('infra.upsert', '1994-12-13', {
 add('infra.upsert', '2008-08-25', {
   id: 'naryn-trolleybus-wire-extension', kind: 'track', way: 'road', mode: 'trolleybus',
   since: '2008-08-25', until: '2025-06-19', name: 'Поворот к депо — Раймилиция · реконструкция',
-  color: '#277a64', trackForm: 'double', geometry: geometry.extension, reconstruction: true,
+  color: '#277a64', trackForm: 'single_oneway', geometry: geometry.extension, reconstruction: true,
+})
+for (const stop of stops) {
+  const onExtension = stop.point[0] < 75.9653
+  const trackId = onExtension ? 'naryn-trolleybus-wire-extension' : 'naryn-trolleybus-wire-original'
+  add('infra.upsert', stop.since, {
+    id: `naryn-trolleybus-stop-${stop.id}`, kind: 'stop', way: 'road', mode: 'trolleybus',
+    since: stop.since, until: '2024-05-31', name: stop.name,
+    color: '#277a64', trackForm: 'single_both', trackId,
+    stopGroupId: `naryn-trolleybus-stop-group-${stop.id}`, stopDirection: 'both',
+    geometry: { type: 'Point', coordinates: snapToLine(stop.point, onExtension ? geometry.extension : geometry.original) },
+  })
+}
+add('infra.upsert', '1994-10-30', {
+  id: 'naryn-trolleybus-terminus-lenina', kind: 'node', nodeKind: 'terminus', way: 'road', mode: 'trolleybus',
+  since: '1994-10-30', until: '2025-06-19', name: 'Конечная «Улица Ленина»',
+  color: '#277a64', trackForm: 'single_oneway', geometry: { type: 'Point', coordinates: [76.01784, 41.42345] },
 })
 add('infra.upsert', '2008-08-25', {
-  id: 'naryn-trolleybus-loop-raymilitsiya', kind: 'track', way: 'road', mode: 'trolleybus',
-  since: '2008-08-25', until: '2025-06-19', name: 'Разворотное кольцо «Раймилиция» · реконструкция',
-  color: '#277a64', trackForm: 'single_oneway', geometry: geometry.raymilitsiyaLoop, reconstruction: true,
+  id: 'naryn-trolleybus-junction-depot', kind: 'node', nodeKind: 'junction', way: 'road', mode: 'trolleybus',
+  since: '2008-08-25', until: '2025-06-19', name: 'Деповский узел: три стрелки и пересечение',
+  color: '#277a64', trackForm: 'single_oneway', geometry: { type: 'Point', coordinates: [75.96525, 41.4259] },
 })
-for (const stop of stops) add('infra.upsert', stop.since, {
-  id: `naryn-trolleybus-stop-${stop.id}`, kind: 'stop', way: 'road', mode: 'trolleybus',
-  since: stop.since, until: '2024-05-31', name: stop.name,
-  color: '#277a64', trackForm: 'single_both', geometry: { type: 'Point', coordinates: stop.point },
+add('infra.upsert', '2008-08-25', {
+  id: 'naryn-trolleybus-terminus-raymilitsiya', kind: 'node', nodeKind: 'terminus', way: 'road', mode: 'trolleybus',
+  since: '2008-08-25', until: '2025-06-19', name: 'Конечная «Раймилиция»',
+  color: '#277a64', trackForm: 'single_oneway', geometry: { type: 'Point', coordinates: [75.94014, 41.42805] },
 })
 add('route.upsert', '1994-10-30', {
   id: 'naryn-trolleybus-1-opening', mode: 'trolleybus', number: '1',
   name: 'Поворот к депо — улица Ленина', color: '#277a64',
-  segmentIds: ['naryn-trolleybus-wire-original', 'naryn-trolleybus-loop-lenina'],
+  segmentIds: ['naryn-trolleybus-wire-original'],
   since: '1994-10-30', until: '1994-12-12',
 })
 add('route.upsert', '1994-12-13', {
   id: 'naryn-trolleybus-1-original', mode: 'trolleybus', number: '1',
   name: 'Депо — улица Ленина', color: '#277a64',
-  segmentIds: ['naryn-trolleybus-wire-original', 'naryn-trolleybus-loop-lenina', 'naryn-trolleybus-wire-depot-access'],
+  segmentIds: ['naryn-trolleybus-wire-original', 'naryn-trolleybus-wire-depot-access'],
   since: '1994-12-13', until: '2008-04-30',
 })
 add('route.upsert', '2008-08-25', {
   id: 'naryn-trolleybus-1-extended', mode: 'trolleybus', number: '1',
   name: 'Улица Ленина — Раймилиция', color: '#277a64',
-  segmentIds: ['naryn-trolleybus-loop-lenina', 'naryn-trolleybus-wire-original', 'naryn-trolleybus-wire-extension', 'naryn-trolleybus-loop-raymilitsiya'],
+  segmentIds: ['naryn-trolleybus-wire-original', 'naryn-trolleybus-wire-extension'],
   since: '2008-08-25', until: '2024-05-31',
 })
 

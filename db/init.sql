@@ -47,6 +47,9 @@ CREATE TABLE IF NOT EXISTS features (
   node_kind text,
   facility_kind text,
   station_id text,
+  track_id text,
+  stop_group_id text,
+  stop_direction text,
   geom geometry(Geometry, 4326) NOT NULL
 );
 
@@ -60,6 +63,9 @@ ALTER TABLE features ADD COLUMN IF NOT EXISTS track_form text NOT NULL DEFAULT '
 ALTER TABLE features ADD COLUMN IF NOT EXISTS node_kind text;
 ALTER TABLE features ADD COLUMN IF NOT EXISTS facility_kind text;
 ALTER TABLE features ADD COLUMN IF NOT EXISTS station_id text;
+ALTER TABLE features ADD COLUMN IF NOT EXISTS track_id text;
+ALTER TABLE features ADD COLUMN IF NOT EXISTS stop_group_id text;
+ALTER TABLE features ADD COLUMN IF NOT EXISTS stop_direction text;
 ALTER TABLE features DROP CONSTRAINT IF EXISTS features_track_form_check;
 ALTER TABLE features ADD CONSTRAINT features_track_form_check
   CHECK (track_form IN ('double', 'single_oneway', 'single_both'));

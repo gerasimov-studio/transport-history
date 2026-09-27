@@ -122,6 +122,18 @@ input {
 }
 
 .system-marker-shell { background: transparent; border: 0; }
+.stop-platform-marker-shell { background: transparent; border: 0; overflow: visible; }
+.stop-platform-marker {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  transform-origin: 50% 100%;
+  border: 1.5px solid;
+  border-bottom: 0;
+  border-radius: 999px 999px 0 0;
+}
 .system-marker { display: block; box-sizing: border-box; border: 2px solid #1c1814; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.45); }
 
 .leaflet-container {
@@ -572,6 +584,17 @@ input {
   letter-spacing: 0.08em;
 }
 
+.history-panel .highlight-toggle {
+  margin: 10px 0 14px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.history-panel .highlight-toggle.is-on {
+  background: transparent;
+}
+
 .history-panel__nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0 14px; }
 .history-panel__nav button { border: 1px solid var(--panel-border); background: transparent; color: var(--text-strong); padding: 5px 7px; cursor: pointer; }
 .history-panel__nav button:disabled { opacity: 0.35; cursor: default; }
@@ -708,6 +731,7 @@ input {
 
 .timeline__marks {
   position: absolute;
+  z-index: 2;
   top: 4px;
   right: calc(var(--timeline-track-padding) + var(--timeline-thumb-radius));
   left: calc(var(--timeline-track-padding) + var(--timeline-thumb-radius));
@@ -775,6 +799,47 @@ input {
 .timeline__tick:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
+}
+
+.timeline__events {
+  position: absolute;
+  z-index: 3;
+  top: 4px;
+  right: calc(var(--timeline-track-padding) + var(--timeline-thumb-radius));
+  left: calc(var(--timeline-track-padding) + var(--timeline-thumb-radius));
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.timeline__event-mark {
+  position: absolute;
+  top: 4.5px;
+  transform: translateX(-50%);
+}
+
+.timeline__event-tick {
+  display: block;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  background: var(--panel);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.timeline__event-tick[aria-current='true'] {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(215, 196, 163, 0.25);
+}
+
+.timeline__event-tick:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 @media (max-width: 720px) {

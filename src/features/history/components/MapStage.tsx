@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { MapContainer, Marker, Tooltip, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { TrackShape } from '../../../map/TrackShape'
-import { featureAtZoom, featureInView, useMapView } from '../../../map/lod'
+import { featureAtZoom, featureInView, STOP_DIRECTION_DETAIL_ZOOM, useMapView } from '../../../map/lod'
 import { routeRibbons } from '../../../map/segmentLabels'
 import { MODE_COLORS, type CatalogCity, type MapPlace, type MapViewport, type NetworkFeature } from '../../../types'
 import { Basemap } from '../../../components/Basemap'
@@ -87,9 +87,10 @@ function ViewerNetwork({
       },
     })
   }, [map, onViewportChange, view])
-  const visible = features.filter(
+  const zoomVisible = features.filter(
     (feature) => featureAtZoom(feature, view.zoom) && featureInView(feature, view.bounds),
   )
+  const visible = view.zoom >= STOP_DIRECTION_DETAIL_ZOOM ? zoomVisible : mergeStopPlatforms(zoomVisible)
   const ribbons = routeRibbons(
     features.filter((feature) => feature.properties.layer === 'route' && feature.accent !== 'removed'),
   )
@@ -123,6 +124,19 @@ function ViewerNetwork({
       <RouteShields ribbons={ribbons} />
     </>
   )
+}
+
+function mergeStopPlatforms(features: ViewerFeature[]) {
+  const seen = new Set<string>()
+  return features.filter((feature) => {
+    if (feature.properties.kind !== 'stop') return true
+    const group = feature.properties.stopGroupId
+    if (!group) return true
+    const key = `${feature.properties.mode}:${group}:${feature.accent ?? ''}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function placeIcon(place: MapPlace, zoom: number) {

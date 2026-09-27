@@ -7,7 +7,7 @@ import { RoutesPanel } from './components/RoutesPanel'
 import { Timeline } from '../../components/Timeline'
 import { BrandMark } from '../../components/BrandMark'
 import { ThemeToggle } from '../../components/ThemeToggle'
-import { currentSnapshots, formatSnapshotDate, snapshotDates, snapshotsForCity } from '../../data/snapshots'
+import { currentSnapshots, snapshotDates, snapshotsForCity } from '../../data/snapshots'
 import { useCatalog } from '../../data/useCatalog'
 import { useViewportState } from '../../data/useViewportState'
 import { useSession } from '../../data/useSession'
@@ -235,27 +235,18 @@ export function ViewerPage() {
             })
           }}
         />
-        {detailedView && previousDate ? <label className={showChanges ? 'hud-panel highlight-toggle is-on' : 'hud-panel highlight-toggle'}>
-          <input
-            type="checkbox"
-            checked={showChanges}
-            onChange={(event) => setShowChanges(event.target.checked)}
-          />
-          <span>
-            {t('viewer.changes')}
-            <small>
-              {hasDiff(diff) ? formatSnapshotDate(previousDate) : t('viewer.noDifferences')}
-            </small>
-          </span>
-        </label> : null}
         {detailedView ? <HistoryPanel
           date={selectedDate}
           snapshots={activeSnapshots}
           events={timelineEvents}
           routeLabels={routeLabels}
           onSelectDate={selectDate}
+          showChanges={showChanges}
+          changesAvailable={hasDiff(diff)}
+          changesFrom={previousDate}
+          onShowChanges={setShowChanges}
         /> : null}
-        {viewport && selectedDate ? (
+        {user && viewport && selectedDate ? (
           <div className="hud-panel export-panel">
             <label>
               <input type="checkbox" checked={exportBasemap} onChange={(event) => setExportBasemap(event.target.checked)} />
@@ -274,7 +265,7 @@ export function ViewerPage() {
         <Timeline
           dates={timelineDates}
           date={selectedDate}
-          granularity={detailedView ? 'date' : 'year'}
+          granularity={detailedView ? 'system' : 'year'}
           onDateChange={selectDate}
         />
       ) : null}

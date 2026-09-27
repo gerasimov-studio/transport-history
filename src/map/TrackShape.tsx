@@ -1,7 +1,7 @@
 import L from 'leaflet'
-import { CircleMarker, LayerGroup, Marker, Polygon, Polyline, Popup } from 'react-leaflet'
+import { CircleMarker, LayerGroup, Marker, Polygon, Polyline, Popup, useMap } from 'react-leaflet'
 import { alongPolyline, DOUBLE_TRACK_DETAIL_ZOOM, doubleTrackVisibleGap, offsetPolyline, singleTrackJoins } from './geometry'
-import { strokeScale } from './lod'
+import { STOP_DIRECTION_DETAIL_ZOOM, strokeScale } from './lod'
 import { type NetworkFeature, type NodeKind } from '../types'
 import { useI18n, type Locale } from '../i18n'
 import { domain } from '../domainI18n'
@@ -34,6 +34,7 @@ export function TrackShape({
   onSelect,
 }: TrackShapeProps) {
   const { locale } = useI18n()
+  const map = useMap()
   const events = onSelect
     ? {
         click: (event: { originalEvent: Event }) => {
@@ -58,9 +59,28 @@ export function TrackShape({
   if (feature.geometry.type === 'Point') {
     const [lng, lat] = feature.geometry.coordinates
     const nodeKind = feature.properties.nodeKind
+    const stopAngle = feature.properties.kind === 'stop'
+      ? linkedTrackAngle(map, feature, networkFeatures)
+      : undefined
+    const center = [lat, lng] as [number, number]
+    if (
+      feature.properties.kind === 'stop' &&
+      stopAngle != null &&
+      feature.properties.stopDirection &&
+      feature.properties.stopDirection !== 'both' &&
+      zoom >= STOP_DIRECTION_DETAIL_ZOOM
+    ) {
+      const side = feature.properties.stopDirection === 'forward' ? 1 : -1
+      const icon = stopSemicircleIcon(feature.properties.color, stopAngle, side, selected)
+      return (
+        <Marker position={center} icon={icon} eventHandlers={events}>
+          {showPopup ? <Popup><strong>{pointTitle(feature, locale)}</strong></Popup> : null}
+        </Marker>
+      )
+    }
     const marker = (
       <CircleMarker
-        center={[lat, lng]}
+        center={center}
         radius={pointRadius(feature.properties.kind, nodeKind, selected)}
         pathOptions={{
           color: accent === 'removed' ? '#8f4d45' : nodeKind === 'portal' ? '#d7c4a3' : accent ? '#d7c4a3' : '#1a1a1a',
@@ -122,6 +142,50 @@ export function TrackShape({
       ))}
     </LayerGroup>
   )
+}
+
+function linkedTrackAngle(map: L.Map, stop: NetworkFeature, features: NetworkFeature[]) {
+  const track = features.find((candidate) =>
+    candidate.properties.layer === 'infra' &&
+    candidate.properties.kind === 'track' &&
+    candidate.properties.infraId === stop.properties.trackId,
+  )
+  if (!track || stop.geometry.type !== 'Point') return undefined
+  const lines = track.geometry.type === 'LineString'
+    ? [track.geometry.coordinates]
+    : track.geometry.type === 'MultiLineString' ? track.geometry.coordinates : []
+  const actual = map.latLngToLayerPoint([stop.geometry.coordinates[1], stop.geometry.coordinates[0]])
+  let best: { angle: number; distance: number } | undefined
+  for (const line of lines) {
+    for (let index = 1; index < line.length; index += 1) {
+      const start = map.latLngToLayerPoint([line[index - 1][1], line[index - 1][0]])
+      const end = map.latLngToLayerPoint([line[index][1], line[index][0]])
+      const vector = end.subtract(start)
+      const lengthSquared = vector.x * vector.x + vector.y * vector.y
+      if (!lengthSquared) continue
+      const relative = actual.subtract(start)
+      const t = Math.max(0, Math.min(1, (relative.x * vector.x + relative.y * vector.y) / lengthSquared))
+      const point = L.point(start.x + vector.x * t, start.y + vector.y * t)
+      const distance = actual.distanceTo(point)
+      if (!best || distance < best.distance) {
+        best = { angle: Math.atan2(vector.y, vector.x) * 180 / Math.PI, distance }
+      }
+    }
+  }
+  return best?.angle
+}
+
+function stopSemicircleIcon(color: string, angle: number, side: number, selected: boolean) {
+  const width = selected ? 16 : 13
+  const height = width / 2
+  const rotation = angle + (side > 0 ? 180 : 0)
+  const safeColor = /^#[0-9a-f]{3,8}$/i.test(color) ? color : '#277a64'
+  return L.divIcon({
+    className: 'stop-platform-marker-shell',
+    html: `<span class="stop-platform-marker" style="width:${width}px;height:${height}px;border-color:#1a1a1a;background:${safeColor};transform:rotate(${rotation}deg)"></span>`,
+    iconSize: [width, width],
+    iconAnchor: [width / 2, width / 2],
+  })
 }
 
 function TrackLine({

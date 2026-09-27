@@ -12,6 +12,7 @@ export type TrackForm = 'double' | 'single_oneway' | 'single_both'
 export type NodeKind = 'junction' | 'terminus' | 'loop' | 'wye' | 'crossover' | 'portal'
 
 export type TrackGrade = 'surface' | 'tunnel'
+export type StopDirection = 'forward' | 'backward' | 'both'
 
 export const TRANSPORT_MODES: { id: TransportMode; label: string }[] = [
   { id: 'railway', label: 'Railway' },
@@ -128,6 +129,9 @@ export type NetworkProperties = {
   nodeKind?: NodeKind
   facilityKind?: FacilityKind
   stationId?: string
+  trackId?: string
+  stopGroupId?: string
+  stopDirection?: StopDirection
   layer?: EditorLayer
   infraId?: string
   way?: TransportWay
@@ -170,6 +174,9 @@ export type InfraEntity = {
   nodeKind?: NodeKind
   facilityKind?: FacilityKind
   stationId?: string
+  trackId?: string
+  stopGroupId?: string
+  stopDirection?: StopDirection
   geometry: NetworkFeature['geometry']
 }
 
