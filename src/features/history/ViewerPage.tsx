@@ -42,6 +42,8 @@ export function ViewerPage() {
   const [showChanges, setShowChanges] = useState(false)
   const [viewport, setViewport] = useState<MapViewport | null>(null)
   const [exportBasemap, setExportBasemap] = useState(true)
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
+  const [sideDockOpen, setSideDockOpen] = useState(false)
   const handleViewportChange = useCallback((next: MapViewport) => {
     setViewport(next)
     if (!(next.zoom === 2 && Math.abs(next.center[0] - 20) < 0.01 && Math.abs(next.center[1]) < 0.01)) {
@@ -190,76 +192,101 @@ export function ViewerPage() {
       />
       {stateError ? <p className="map-error" role="status">{stateError}</p> : null}
       <header className="brand">
-        <div className="brand__lockup">
-          <BrandMark />
-          <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
+        <div className="brand__row">
+          <div className="brand__lockup">
+            <BrandMark />
+            <h1 className="brand__title">{workspaceId === 'main' ? t('app.title') : t('viewer.alternative')}</h1>
+          </div>
+          <button
+            className={headerMenuOpen ? 'brand__menu-toggle is-open' : 'brand__menu-toggle'}
+            type="button"
+            aria-expanded={headerMenuOpen}
+            aria-controls="brand-menu"
+            aria-label={headerMenuOpen ? t('navigation.close') : t('navigation.open')}
+            onClick={() => {
+              setHeaderMenuOpen((open) => !open)
+              setSideDockOpen(false)
+            }}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
         </div>
-        <div className="brand__actions">
+        <div id="brand-menu" className={headerMenuOpen ? 'brand__actions is-open' : 'brand__actions'}>
           <Link className="brand__account" to="/account">{user?.username ?? t('account.signInOrRegister')}</Link>
           <ThemeToggle />
         </div>
       </header>
-      <div className="side-dock">
-        <ModesPanel
-          modes={modes}
-          onToggle={(mode) => setModes((current) => ({ ...current, [mode]: !current[mode] }))}
-        />
-        <RoutesPanel
-          routes={listedRoutes}
-          hidden={hiddenRoutes}
-          onToggle={(id) => {
-            setHiddenRoutes((current) => {
-              const next = new Set(current)
-              if (next.has(id)) {
-                next.delete(id)
-              } else {
-                next.add(id)
-              }
-              return next
-            })
+      <div className={sideDockOpen ? 'side-dock is-open' : 'side-dock'}>
+        <button
+          className="side-dock__toggle"
+          type="button"
+          aria-expanded={sideDockOpen}
+          aria-controls="map-controls"
+          onClick={() => {
+            setSideDockOpen((open) => !open)
+            setHeaderMenuOpen(false)
           }}
-          onSetMode={(mode, visible) => {
-            setHiddenRoutes((current) => {
-              const next = new Set(current)
-              for (const route of listedRoutes) {
-                if (route.mode !== mode) {
-                  continue
+        >
+          <span className="side-dock__toggle-icon" aria-hidden="true"><i /><i /><i /></span>
+          <span>{t('viewer.controls')}</span>
+          <span className="side-dock__toggle-chevron" aria-hidden="true">⌄</span>
+        </button>
+        <div id="map-controls" className="side-dock__body">
+          <ModesPanel
+            modes={modes}
+            onToggle={(mode) => setModes((current) => ({ ...current, [mode]: !current[mode] }))}
+          />
+          <RoutesPanel
+            routes={listedRoutes}
+            hidden={hiddenRoutes}
+            onToggle={(id) => {
+              setHiddenRoutes((current) => {
+                const next = new Set(current)
+                if (next.has(id)) next.delete(id)
+                else next.add(id)
+                return next
+              })
+            }}
+            onSetMode={(mode, visible) => {
+              setHiddenRoutes((current) => {
+                const next = new Set(current)
+                for (const route of listedRoutes) {
+                  if (route.mode !== mode) continue
+                  if (visible) next.delete(route.id)
+                  else next.add(route.id)
                 }
-                if (visible) {
-                  next.delete(route.id)
-                } else {
-                  next.add(route.id)
-                }
-              }
-              return next
-            })
-          }}
-        />
-        {detailedView ? <HistoryPanel
-          date={selectedDate}
-          snapshots={activeSnapshots}
-          events={timelineEvents}
-          routeLabels={routeLabels}
-          onSelectDate={selectDate}
-          showChanges={showChanges}
-          changesAvailable={hasDiff(diff)}
-          changesFrom={previousDate}
-          onShowChanges={setShowChanges}
-        /> : null}
-        {user && viewport && selectedDate ? (
-          <div className="hud-panel export-panel">
-            <label>
-              <input type="checkbox" checked={exportBasemap} onChange={(event) => setExportBasemap(event.target.checked)} />
-              {t('viewer.basemap')}
-            </label>
-            <a
-              download={`transport-${selectedDate}.svg`}
-              href={`/api/export.svg?bbox=${encodeURIComponent([viewport.bounds.west, viewport.bounds.south, viewport.bounds.east, viewport.bounds.north].join(','))}&date=${encodeURIComponent(selectedDate)}&zoom=${viewport.zoom}&width=${viewport.width}&height=${viewport.height}&workspace=${encodeURIComponent(workspaceId)}&basemap=${exportBasemap ? '1' : '0'}&modes=${encodeURIComponent(Object.entries(modes).filter(([, enabled]) => enabled).map(([mode]) => mode).join(','))}&routes=${encodeURIComponent([...visibleRouteIds].join(','))}`}
-            >
-              {t('viewer.export')}
-            </a>
-          </div>
-        ) : null}
+                return next
+              })
+            }}
+          />
+          {detailedView ? <HistoryPanel
+            date={selectedDate}
+            snapshots={activeSnapshots}
+            events={timelineEvents}
+            routeLabels={routeLabels}
+            onSelectDate={selectDate}
+            showChanges={showChanges}
+            changesAvailable={hasDiff(diff)}
+            changesFrom={previousDate}
+            onShowChanges={setShowChanges}
+          /> : null}
+          {user && viewport && selectedDate ? (
+            <div className="hud-panel export-panel">
+              <label>
+                <input type="checkbox" checked={exportBasemap} onChange={(event) => setExportBasemap(event.target.checked)} />
+                {t('viewer.basemap')}
+              </label>
+              <a
+                download={`transport-${selectedDate}.svg`}
+                href={`/api/export.svg?bbox=${encodeURIComponent([viewport.bounds.west, viewport.bounds.south, viewport.bounds.east, viewport.bounds.north].join(','))}&date=${encodeURIComponent(selectedDate)}&zoom=${viewport.zoom}&width=${viewport.width}&height=${viewport.height}&workspace=${encodeURIComponent(workspaceId)}&basemap=${exportBasemap ? '1' : '0'}&modes=${encodeURIComponent(Object.entries(modes).filter(([, enabled]) => enabled).map(([mode]) => mode).join(','))}&routes=${encodeURIComponent([...visibleRouteIds].join(','))}`}
+              >
+                {t('viewer.export')}
+              </a>
+            </div>
+          ) : null}
+        </div>
       </div>
       {selectedDate ? (
         <Timeline
