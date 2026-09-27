@@ -94,6 +94,7 @@ function fingerprintInfra(entity: InfraEntity): string {
     entity.trackId,
     entity.stopGroupId,
     entity.stopDirection,
+    entity.platformPoint,
     entity.gauge,
     entity.grade,
     entity.level,

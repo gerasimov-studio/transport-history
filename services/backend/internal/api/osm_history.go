@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/jackc/pgx/v5"
 	"transport-history/backend/internal/domain"
@@ -24,13 +26,29 @@ type osmCommitBody struct {
 	OSMChange   domain.OSMChange `json:"osmChange"`
 }
 
+type osmProjectionNode struct {
+	id       int64
+	lat, lon float64
+	tags     domain.OSMTags
+}
+
+type osmProjectionWay struct {
+	id      int64
+	version int
+	tags    domain.OSMTags
+	refs    []int64
+}
+
+type osmProjectionRelation struct {
+	id      int64
+	version int
+	tags    domain.OSMTags
+	members []domain.OSMMember
+}
+
 func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error {
-	type node struct {
-		id       int64
-		lat, lon float64
-		tags     domain.OSMTags
-	}
-	nodes := map[int64]node{}
+	const openingDate = "2020-12-12"
+	nodes := map[int64]osmProjectionNode{}
 	rows, err := s.pool.Query(ctx, `SELECT DISTINCT ON(v.id) v.id,v.lat,v.lon,v.tags,v.visible
 		FROM osm_node_versions v JOIN osm_changesets o ON o.id=v.changeset_id JOIN changesets c ON c.id=o.id
 		WHERE v.workspace_id=$1 AND c.status='published' ORDER BY v.id,c.effective_on DESC,o.sequence DESC`, workspace)
@@ -38,7 +56,7 @@ func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error 
 		return err
 	}
 	for rows.Next() {
-		var v node
+		var v osmProjectionNode
 		var visible bool
 		if err = rows.Scan(&v.id, &v.lat, &v.lon, &v.tags, &visible); err != nil {
 			return err
@@ -48,13 +66,7 @@ func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error 
 		}
 	}
 	rows.Close()
-	type way struct {
-		id      int64
-		version int
-		tags    domain.OSMTags
-		refs    []int64
-	}
-	ways := map[int64]way{}
+	ways := map[int64]osmProjectionWay{}
 	rows, err = s.pool.Query(ctx, `SELECT DISTINCT ON(v.id) v.id,v.version,v.tags,v.visible
 		FROM osm_way_versions v JOIN osm_changesets o ON o.id=v.changeset_id JOIN changesets c ON c.id=o.id
 		WHERE v.workspace_id=$1 AND c.status='published' ORDER BY v.id,c.effective_on DESC,o.sequence DESC`, workspace)
@@ -62,7 +74,7 @@ func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error 
 		return err
 	}
 	for rows.Next() {
-		var v way
+		var v osmProjectionWay
 		var visible bool
 		if err = rows.Scan(&v.id, &v.version, &v.tags, &visible); err != nil {
 			return err
@@ -86,19 +98,13 @@ func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error 
 		rows.Close()
 		ways[id] = v
 	}
-	type relation struct {
-		id      int64
-		version int
-		tags    domain.OSMTags
-		members []domain.OSMMember
-	}
-	relations := map[int64]relation{}
+	relations := map[int64]osmProjectionRelation{}
 	rows, err = s.pool.Query(ctx, `SELECT DISTINCT ON(v.id) v.id,v.version,v.tags,v.visible FROM osm_relation_versions v JOIN osm_changesets o ON o.id=v.changeset_id JOIN changesets c ON c.id=o.id WHERE v.workspace_id=$1 AND c.status='published' ORDER BY v.id,c.effective_on DESC,o.sequence DESC`, workspace)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
-		var v relation
+		var v osmProjectionRelation
 		var visible bool
 		if err = rows.Scan(&v.id, &v.version, &v.tags, &visible); err != nil {
 			return err
@@ -140,7 +146,61 @@ func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error 
 	var sumLat, sumLon float64
 	var pointCount int
 	infra := map[int64]string{}
+	routeDirections := map[int64]string{}
+	directionalRelations := []int64{}
+	for id, relation := range relations {
+		if relation.tags["type"] == "route" && relation.tags["route"] == "tram" {
+			directionalRelations = append(directionalRelations, id)
+		}
+	}
+	slices.Sort(directionalRelations)
+	for index, id := range directionalRelations {
+		direction := "forward"
+		if index%2 == 1 {
+			direction = "backward"
+		}
+		routeDirections[id] = direction
+	}
+	stopUsage := map[int64][]string{}
+	stopPlatforms := map[int64]int64{}
+	for relationID, relation := range relations {
+		direction := routeDirections[relationID]
+		if direction == "" {
+			continue
+		}
+		var pendingStop int64
+		for _, member := range relation.members {
+			if member.Type == "node" && member.Role == "stop" {
+				stopUsage[member.Ref] = append(stopUsage[member.Ref], direction)
+				pendingStop = member.Ref
+			} else if pendingStop != 0 && member.Type == "way" && member.Role == "platform" {
+				stopPlatforms[pendingStop] = member.Ref
+				pendingStop = 0
+			}
+		}
+	}
 	for id, v := range ways {
+		if isTramDepot(v.tags) && len(v.refs) >= 4 && v.refs[0] == v.refs[len(v.refs)-1] {
+			coords := coordinatesForRefs(v.refs, nodes)
+			if len(coords) < 4 {
+				continue
+			}
+			rawCoords, _ := json.Marshal([][][2]float64{coords})
+			name := v.tags["name"]
+			if name == "" {
+				name = v.tags["description"]
+			}
+			if name == "" {
+				name = "Lund tram depot"
+			}
+			obj := domain.Infra{ID: fmt.Sprintf("osm:way:%d", id), Kind: "area", FacilityKind: "depot", Way: "rail", Mode: "tram", Since: openingDate, Name: name, Color: defaultModeColor("tram"), Geometry: domain.Geometry{Type: "Polygon", Coordinates: rawCoords}}
+			raw, _ := json.Marshal(obj)
+			geom, _ := json.Marshal(obj.Geometry)
+			if _, err = tx.Exec(ctx, `INSERT INTO network_infra(id,source_scope,kind,way,valid_from,payload,geom)VALUES($1,$2,'area','rail',$3,$4,ST_SetSRID(ST_GeomFromGeoJSON($5),4326))`, obj.ID, scope, openingDate, raw, geom); err != nil {
+				return err
+			}
+			continue
+		}
 		railway := v.tags["railway"]
 		if railway != "tram" && railway != "rail" && railway != "subway" && railway != "light_rail" {
 			continue
@@ -169,13 +229,13 @@ func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error 
 			gauge = n
 		}
 		form := "single_both"
-		if v.tags["oneway"] == "yes" {
+		if v.tags["oneway"] == "yes" || wayHasSingleRouteDirection(id, relations, routeDirections) {
 			form = "single_oneway"
 		}
-		obj := domain.Infra{ID: fmt.Sprintf("osm:way:%d", id), Kind: "track", Way: "rail", Mode: mode, Gauge: &gauge, Grade: "surface", Name: v.tags["name"], Color: "#7f7160", TrackForm: form, Geometry: domain.Geometry{Type: "LineString", Coordinates: rawCoords}}
+		obj := domain.Infra{ID: fmt.Sprintf("osm:way:%d", id), Kind: "track", Way: "rail", Mode: mode, Gauge: &gauge, Grade: "surface", Since: openingDate, Name: v.tags["name"], Color: defaultModeColor(mode), TrackForm: form, Geometry: domain.Geometry{Type: "LineString", Coordinates: rawCoords}}
 		raw, _ := json.Marshal(obj)
 		geom, _ := json.Marshal(obj.Geometry)
-		if _, err = tx.Exec(ctx, `INSERT INTO network_infra(id,source_scope,kind,way,payload,geom)VALUES($1,$2,'track','rail',$3,ST_SetSRID(ST_GeomFromGeoJSON($4),4326))`, obj.ID, scope, raw, geom); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO network_infra(id,source_scope,kind,way,valid_from,payload,geom)VALUES($1,$2,'track','rail',$3,$4,ST_SetSRID(ST_GeomFromGeoJSON($5),4326))`, obj.ID, scope, openingDate, raw, geom); err != nil {
 			return err
 		}
 		infra[id] = obj.ID
@@ -184,11 +244,20 @@ func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error 
 		if n.tags["railway"] != "tram_stop" {
 			continue
 		}
+		trackID := containingTrackID(id, ways)
+		if trackID == "" {
+			continue
+		}
+		directions := stopUsage[id]
+		direction := "both"
+		if len(directions) == 1 {
+			direction = directions[0]
+		}
 		coords, _ := json.Marshal([2]float64{n.lon, n.lat})
-		obj := domain.Infra{ID: fmt.Sprintf("osm:node:%d", id), Kind: "stop", Way: "rail", Mode: "tram", Name: n.tags["name"], Color: "#7f7160", TrackForm: "single_both", Geometry: domain.Geometry{Type: "Point", Coordinates: coords}}
+		obj := domain.Infra{ID: fmt.Sprintf("osm:node:%d", id), Kind: "stop", Way: "rail", Mode: "tram", Since: openingDate, Name: n.tags["name"], Color: defaultModeColor("tram"), TrackID: trackID, StopGroupID: stopGroupID(n.tags["name"], id), StopDirection: direction, PlatformPoint: platformPointForStop(id, stopPlatforms, ways, nodes), Geometry: domain.Geometry{Type: "Point", Coordinates: coords}}
 		raw, _ := json.Marshal(obj)
 		geom, _ := json.Marshal(obj.Geometry)
-		if _, err = tx.Exec(ctx, `INSERT INTO network_infra(id,source_scope,kind,way,payload,geom)VALUES($1,$2,'stop','rail',$3,ST_SetSRID(ST_GeomFromGeoJSON($4),4326))`, obj.ID, scope, raw, geom); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO network_infra(id,source_scope,kind,way,valid_from,payload,geom)VALUES($1,$2,'stop','rail',$3,$4,ST_SetSRID(ST_GeomFromGeoJSON($5),4326))`, obj.ID, scope, openingDate, raw, geom); err != nil {
 			return err
 		}
 	}
@@ -228,7 +297,11 @@ func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error 
 				}
 			}
 		}
-		route := domain.Route{ID: fmt.Sprintf("osm:relation:%d", master.id), Mode: "tram", Number: number, Name: master.tags["name"], Color: "#7f7160", SegmentIDs: segments, Since: "2020-12-12"}
+		color := master.tags["colour"]
+		if color == "" {
+			color = defaultModeColor("tram")
+		}
+		route := domain.Route{ID: fmt.Sprintf("osm:relation:%d", master.id), Mode: "tram", Number: number, Name: master.tags["name"], Color: color, SegmentIDs: segments, Since: "2020-12-12"}
 		raw, _ := json.Marshal(route)
 		if _, err = tx.Exec(ctx, `INSERT INTO network_routes(id,source_scope,mode,valid_from,segment_ids,payload)VALUES($1,$2,'tram',DATE '2020-12-12',$3,$4)`, route.ID, scope, segments, raw); err != nil {
 			return err
@@ -256,6 +329,107 @@ func (s *Server) syncOSMProjection(ctx context.Context, workspace string) error 
 		}
 	}
 	return tx.Commit(ctx)
+}
+
+func coordinatesForRefs(refs []int64, nodes map[int64]osmProjectionNode) [][2]float64 {
+	coords := make([][2]float64, 0, len(refs))
+	for _, ref := range refs {
+		if n, ok := nodes[ref]; ok {
+			coords = append(coords, [2]float64{n.lon, n.lat})
+		}
+	}
+	return coords
+}
+
+func isTramDepot(tags domain.OSMTags) bool {
+	return tags["industrial"] == "depot" && strings.Contains(strings.ToLower(tags["description"]), "spårvagn")
+}
+
+func defaultModeColor(mode string) string {
+	switch mode {
+	case "metro":
+		return "#171717"
+	case "tram":
+		return "#c43b32"
+	case "trolleybus":
+		return "#27824a"
+	case "bus":
+		return "#d5a900"
+	default:
+		return "#735f4b"
+	}
+}
+
+func containingTrackID(nodeID int64, ways map[int64]osmProjectionWay) string {
+	wayIDs := make([]int64, 0, len(ways))
+	for wayID := range ways {
+		wayIDs = append(wayIDs, wayID)
+	}
+	slices.Sort(wayIDs)
+	for _, wayID := range wayIDs {
+		candidate := ways[wayID]
+		if candidate.tags["railway"] != "tram" {
+			continue
+		}
+		for _, ref := range candidate.refs {
+			if ref == nodeID {
+				return fmt.Sprintf("osm:way:%d", wayID)
+			}
+		}
+	}
+	return ""
+}
+
+func platformPointForStop(stopID int64, stopPlatforms map[int64]int64, ways map[int64]osmProjectionWay, nodes map[int64]osmProjectionNode) *[2]float64 {
+	platform, ok := ways[stopPlatforms[stopID]]
+	if !ok {
+		return nil
+	}
+	coords := coordinatesForRefs(platform.refs, nodes)
+	if len(coords) == 0 {
+		return nil
+	}
+	var lon, lat float64
+	for _, coord := range coords {
+		lon += coord[0]
+		lat += coord[1]
+	}
+	point := [2]float64{lon / float64(len(coords)), lat / float64(len(coords))}
+	return &point
+}
+
+func stopGroupID(name string, fallbackID int64) string {
+	value := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(name, "Lund ")))
+	value = strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			return r
+		}
+		return '-'
+	}, value)
+	value = strings.Trim(value, "-")
+	for strings.Contains(value, "--") {
+		value = strings.ReplaceAll(value, "--", "-")
+	}
+	if value == "" {
+		value = strconv.FormatInt(fallbackID, 10)
+	}
+	return "osm:stop-group:" + value
+}
+
+func wayHasSingleRouteDirection(wayID int64, relations map[int64]osmProjectionRelation, directions map[int64]string) bool {
+	seen := map[string]bool{}
+	for relationID, relation := range relations {
+		direction := directions[relationID]
+		if direction == "" {
+			continue
+		}
+		for _, member := range relation.members {
+			if member.Type == "way" && member.Ref == wayID {
+				seen[direction] = true
+			}
+		}
+	}
+	return len(seen) == 1
 }
 
 func (s *Server) osmCommit(w http.ResponseWriter, r *http.Request) {

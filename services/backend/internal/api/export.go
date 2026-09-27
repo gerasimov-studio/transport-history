@@ -240,6 +240,8 @@ func (s *Server) buildSVG(r *http.Request, features []domain.Feature, b bounds, 
 		dash := ""
 		if f.Properties.Propulsion == "autonomous" {
 			dash = "18 10"
+		} else if f.Properties.Way == "rail" {
+			dash = ""
 		} else if f.Properties.Grade == "tunnel" {
 			dash = "10 8"
 		} else if form == "single_oneway" {

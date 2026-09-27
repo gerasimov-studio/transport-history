@@ -49,6 +49,18 @@ Routes use standard `type=route` relations. Systems use
 `type=transport_system` relations. Historical articles remain changeset
 metadata and are not encoded as artificial OSM tags.
 
+Surface stops are projected from OSM `stop_position` nodes that are actual
+members of an infrastructure way. The projection stores that way as `trackId`
+and derives the served direction from route-relation membership; platform
+geometry remains source context rather than a second map stop. Its centroid is
+stored in the disposable projection only to orient the stop semicircle toward
+the physical platform. Opposite directions share a stable stop group. Stops,
+tracks and the route created by one opening changeset share its effective date.
+
+Depot grounds are projected independently from routes as infrastructure areas.
+Every rail way in the imported depot extract is projected, including yard,
+workshop and access tracks that carry no passenger route.
+
 ## Initial dataset
 
 The first demonstration dataset is Lund tramway. Its initial changeset is

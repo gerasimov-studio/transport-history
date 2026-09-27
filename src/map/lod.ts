@@ -98,7 +98,9 @@ export function geometryBounds(
       ? [geometry.coordinates]
       : geometry.type === 'MultiLineString'
         ? geometry.coordinates
-        : []
+        : geometry.type === 'Polygon'
+          ? geometry.coordinates
+          : []
   const points: [number, number][] = []
   for (const line of lines) {
     for (const [lng, lat] of line) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { MapContainer, Marker, Tooltip, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Pane, Tooltip, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { TrackShape } from '../../../map/TrackShape'
 import { featureAtZoom, featureInView, STOP_DIRECTION_DETAIL_ZOOM, useMapView } from '../../../map/lod'
@@ -42,6 +42,8 @@ export function MapStage({ city, features, places = [], highlight = false, onVie
         renderer={renderer}
       >
         <Basemap />
+        <Pane name="depot-areas" style={{ zIndex: 390 }} />
+        <Pane name="stop-markers" style={{ zIndex: 650 }} />
         {start ? <StartView start={start} /> : null}
         <ViewerNetwork features={features} places={places} highlight={highlight} onViewportChange={onViewportChange} />
       </MapContainer>

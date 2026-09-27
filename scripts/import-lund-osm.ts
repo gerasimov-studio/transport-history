@@ -2,6 +2,7 @@ const baseURL = process.env.BASE_URL ?? 'http://127.0.0.1:3001'
 const username = process.env.EDITOR_USERNAME ?? 'editor'
 const password = process.env.EDITOR_PASSWORD ?? 'editor'
 const relationIDs = [12021098, 12021099, 14264835]
+const depotBBox = '13.225,55.715,13.26,55.75'
 
 type Tags = Record<string, string>
 type Node = { id: number; version: number; lat: number; lon: number; tags?: Tags }
@@ -46,8 +47,22 @@ const documents = await Promise.all(relationIDs.map(async (id) => {
   if (!response.ok) throw new Error(`OSM relation ${id}: ${response.status}`)
   return parse(await response.text())
 }))
+const depotResponse = await fetch(`https://api.openstreetmap.org/api/0.6/map?bbox=${depotBBox}`, { headers: { 'user-agent': 'transporthistory/1.0' } })
+if (!depotResponse.ok) throw new Error(`OSM depot extract: ${depotResponse.status}`)
+const depotDocument = parse(await depotResponse.text())
+const depotWays = depotDocument.ways.filter((way) =>
+  way.tags?.railway === 'tram' ||
+  way.tags?.depot === 'tram' ||
+  (way.tags?.industrial === 'depot' && way.tags?.description?.includes('Spårvagn')),
+)
+const depotNodeIDs = new Set(depotWays.flatMap((way) => way.nodes))
+const depotNodes = depotDocument.nodes.filter((node) => depotNodeIDs.has(node.id))
 const unique = <T extends { id: number }>(items: T[]) => [...new Map(items.map((item) => [item.id, item])).values()]
-const create = { nodes: unique(documents.flatMap((d) => d.nodes)), ways: unique(documents.flatMap((d) => d.ways)), relations: unique(documents.flatMap((d) => d.relations)) }
+const create = {
+  nodes: unique([...documents.flatMap((d) => d.nodes), ...depotNodes]),
+  ways: unique([...documents.flatMap((d) => d.ways), ...depotWays]),
+  relations: unique(documents.flatMap((d) => d.relations)),
+}
 const login = await request('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) })
 const cookie = login.headers.get('set-cookie')?.split(';')[0]
 if (!cookie) throw new Error('login did not return a session')

@@ -134,6 +134,18 @@ input {
   border-bottom: 0;
   border-radius: 999px 999px 0 0;
 }
+.depot-label {
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+  color: var(--text);
+  font: 600 10px/1.2 var(--sans);
+  letter-spacing: .06em;
+  padding: 4px 6px;
+  text-transform: uppercase;
+}
+.depot-label::before { display: none; }
 .system-marker { display: block; box-sizing: border-box; border: 2px solid #1c1814; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,.45); }
 
 .leaflet-container {

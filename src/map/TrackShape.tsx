@@ -1,5 +1,5 @@
 import L from 'leaflet'
-import { CircleMarker, LayerGroup, Marker, Polygon, Polyline, Popup, useMap } from 'react-leaflet'
+import { CircleMarker, LayerGroup, Marker, Polygon, Polyline, Popup, Tooltip, useMap } from 'react-leaflet'
 import { alongPolyline, DOUBLE_TRACK_DETAIL_ZOOM, doubleTrackVisibleGap, offsetPolyline, singleTrackJoins } from './geometry'
 import { STOP_DIRECTION_DETAIL_ZOOM, strokeScale } from './lod'
 import { type NetworkFeature, type NodeKind } from '../types'
@@ -45,12 +45,15 @@ export function TrackShape({
     : undefined
 
   if (feature.geometry.type === 'Polygon') {
+    const isDepot = feature.properties.facilityKind === 'depot'
     return (
       <Polygon
         positions={feature.geometry.coordinates.map((ring) => ring.map(([lng, lat]) => [lat, lng] as [number, number]))}
-        pathOptions={{ color: feature.properties.color, weight: selected ? 3 : 2, fillOpacity: muted ? 0.12 : 0.24 }}
+        pane={isDepot ? 'depot-areas' : undefined}
+        pathOptions={{ color: feature.properties.color, fillColor: feature.properties.color, weight: selected || isDepot ? 2.5 : 2, opacity: isDepot ? 0.48 : undefined, fillOpacity: isDepot ? 0.1 : muted ? 0.12 : 0.24, dashArray: isDepot ? '8 5' : undefined }}
         eventHandlers={events}
       >
+        {isDepot ? <Tooltip permanent direction="center" className="depot-label">{feature.properties.name}</Tooltip> : null}
         {showPopup ? <Popup><strong>{feature.properties.name}</strong></Popup> : null}
       </Polygon>
     )
@@ -60,7 +63,7 @@ export function TrackShape({
     const [lng, lat] = feature.geometry.coordinates
     const nodeKind = feature.properties.nodeKind
     const stopAngle = feature.properties.kind === 'stop'
-      ? linkedTrackAngle(map, feature, networkFeatures)
+      ? platformFacingAngle(map, feature, networkFeatures)
       : undefined
     const center = [lat, lng] as [number, number]
     if (
@@ -70,10 +73,9 @@ export function TrackShape({
       feature.properties.stopDirection !== 'both' &&
       zoom >= STOP_DIRECTION_DETAIL_ZOOM
     ) {
-      const side = feature.properties.stopDirection === 'forward' ? 1 : -1
-      const icon = stopSemicircleIcon(feature.properties.color, stopAngle, side, selected)
+      const icon = stopSemicircleIcon(feature.properties.color, stopAngle, selected)
       return (
-        <Marker position={center} icon={icon} eventHandlers={events}>
+        <Marker position={center} icon={icon} eventHandlers={events} pane="stop-markers">
           {showPopup ? <Popup><strong>{pointTitle(feature, locale)}</strong></Popup> : null}
         </Marker>
       )
@@ -89,6 +91,7 @@ export function TrackShape({
           fillOpacity: muted && !accent ? 0.7 : 1,
         }}
         eventHandlers={events}
+        pane={feature.properties.kind === 'stop' ? 'stop-markers' : undefined}
       >
         {showPopup ? (
           <Popup>
@@ -144,18 +147,22 @@ export function TrackShape({
   )
 }
 
-function linkedTrackAngle(map: L.Map, stop: NetworkFeature, features: NetworkFeature[]) {
+function platformFacingAngle(map: L.Map, stop: NetworkFeature, features: NetworkFeature[]) {
+  if (stop.geometry.type !== 'Point' || !stop.properties.platformPoint) return undefined
   const track = features.find((candidate) =>
     candidate.properties.layer === 'infra' &&
     candidate.properties.kind === 'track' &&
     candidate.properties.infraId === stop.properties.trackId,
   )
-  if (!track || stop.geometry.type !== 'Point') return undefined
+  if (!track) return undefined
   const lines = track.geometry.type === 'LineString'
     ? [track.geometry.coordinates]
     : track.geometry.type === 'MultiLineString' ? track.geometry.coordinates : []
   const actual = map.latLngToLayerPoint([stop.geometry.coordinates[1], stop.geometry.coordinates[0]])
-  let best: { angle: number; distance: number } | undefined
+  const [lng, lat] = stop.properties.platformPoint
+  const platform = map.latLngToLayerPoint([lat, lng])
+  let tangent: L.Point | undefined
+  let bestDistance = Number.POSITIVE_INFINITY
   for (const line of lines) {
     for (let index = 1; index < line.length; index += 1) {
       const start = map.latLngToLayerPoint([line[index - 1][1], line[index - 1][0]])
@@ -165,20 +172,28 @@ function linkedTrackAngle(map: L.Map, stop: NetworkFeature, features: NetworkFea
       if (!lengthSquared) continue
       const relative = actual.subtract(start)
       const t = Math.max(0, Math.min(1, (relative.x * vector.x + relative.y * vector.y) / lengthSquared))
-      const point = L.point(start.x + vector.x * t, start.y + vector.y * t)
-      const distance = actual.distanceTo(point)
-      if (!best || distance < best.distance) {
-        best = { angle: Math.atan2(vector.y, vector.x) * 180 / Math.PI, distance }
+      const nearest = L.point(start.x + vector.x * t, start.y + vector.y * t)
+      const distance = actual.distanceTo(nearest)
+      if (distance < bestDistance) {
+        bestDistance = distance
+        tangent = vector
       }
     }
   }
-  return best?.angle
+  if (!tangent) return undefined
+  const normal = L.point(-tangent.y, tangent.x)
+  const towardPlatform = platform.subtract(actual)
+  if (normal.x * towardPlatform.x + normal.y * towardPlatform.y < 0) {
+    normal.x *= -1
+    normal.y *= -1
+  }
+  return Math.atan2(normal.y, normal.x) * 180 / Math.PI
 }
 
-function stopSemicircleIcon(color: string, angle: number, side: number, selected: boolean) {
+function stopSemicircleIcon(color: string, platformAngle: number, selected: boolean) {
   const width = selected ? 16 : 13
   const height = width / 2
-  const rotation = angle + (side > 0 ? 180 : 0)
+  const rotation = platformAngle + 90
   const safeColor = /^#[0-9a-f]{3,8}$/i.test(color) ? color : '#277a64'
   return L.divIcon({
     className: 'stop-platform-marker-shell',
@@ -222,6 +237,9 @@ function TrackLine({
   const isAutonomous = feature.properties.propulsion === 'autonomous'
   const form = feature.properties.trackForm
   const paint = linePaint(feature.properties.color, form, muted, selected, isTunnel, accent, zoom, emphasis)
+  const railSolid = feature.properties.way === 'rail'
+  if (railSolid) paint.dashArray = undefined
+  if (!isRoute) paint.weight += 0.65 * strokeScale(zoom)
   const positions = coordinates.map(([lng, lat]) => [lat, lng] as [number, number])
   const casing =
     emphasis && !muted && !accent ? (
@@ -274,7 +292,7 @@ function TrackLine({
             color: paint.color,
             weight: paint.weight,
             opacity: paint.opacity,
-            dashArray: paint.dashArray ?? '3 8',
+            dashArray: railSolid ? undefined : paint.dashArray ?? '3 8',
             lineCap: 'round',
             lineJoin: 'round',
           }}
@@ -288,7 +306,7 @@ function TrackLine({
 
   if (form === 'double') {
     if (zoom >= DOUBLE_TRACK_DETAIL_ZOOM) {
-      const trackWeight = Math.max(1.35, (selected ? 2.8 : 2.1) * strokeScale(zoom))
+      const trackWeight = Math.max(1.35, (selected ? 2.8 : isRoute ? 2.1 : 2.6) * strokeScale(zoom))
       const visibleGap = doubleTrackVisibleGap(feature.properties.mode, zoom, selected)
       const separation = (trackWeight + visibleGap) / 2
       const joins = singleTrackJoins(feature, coordinates, networkFeatures)
@@ -306,7 +324,7 @@ function TrackLine({
                 color: paint.color,
                 weight: trackWeight,
                 opacity: paint.opacity,
-                dashArray: paint.dashArray ?? (isTunnel ? '10 8' : undefined),
+                dashArray: railSolid ? undefined : paint.dashArray ?? (isTunnel ? '10 8' : undefined),
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -327,7 +345,7 @@ function TrackLine({
             color: paint.color,
             weight: paint.weight,
             opacity: paint.opacity,
-            dashArray: paint.dashArray ?? (isTunnel ? '10 8' : undefined),
+            dashArray: railSolid ? undefined : paint.dashArray ?? (isTunnel ? '10 8' : undefined),
             lineCap: 'round',
             lineJoin: 'round',
           }}
@@ -341,7 +359,7 @@ function TrackLine({
             color: paint.core,
             weight: Math.max(1, (selected ? 3 : muted ? 1.5 : 2) * strokeScale(zoom)),
             opacity: muted && !accent ? 0.35 : 0.9,
-            dashArray: paint.dashArray ?? (isTunnel ? '10 8' : undefined),
+            dashArray: railSolid ? undefined : paint.dashArray ?? (isTunnel ? '10 8' : undefined),
             lineCap: 'round',
             lineJoin: 'round',
           }}
@@ -360,7 +378,7 @@ function TrackLine({
           color: paint.color,
           weight: paint.weight,
           opacity: paint.opacity,
-          dashArray: isAutonomous ? '18 10' : paint.dashArray,
+          dashArray: isAutonomous ? '18 10' : railSolid ? undefined : paint.dashArray,
           lineCap: 'round',
           lineJoin: 'round',
         }}
@@ -368,7 +386,7 @@ function TrackLine({
       >
         {popup}
       </Polyline>
-      {form === 'single_oneway' && !muted && accent !== 'removed' && zoom >= 14
+      {form === 'single_oneway' && feature.properties.way !== 'rail' && !muted && accent !== 'removed' && zoom >= 14
         ? [0.35, 0.7].map((fraction) => {
             const sample = alongPolyline(coordinates, fraction)
             if (!sample) {

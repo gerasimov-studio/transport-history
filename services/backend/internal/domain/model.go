@@ -24,25 +24,26 @@ type Geometry struct {
 }
 
 type Infra struct {
-	ID            string   `json:"id"`
-	Kind          string   `json:"kind"`
-	Way           string   `json:"way"`
-	Mode          string   `json:"mode,omitempty"`
-	Gauge         *int     `json:"gauge,omitempty"`
-	Grade         string   `json:"grade,omitempty"`
-	Level         *int     `json:"level,omitempty"`
-	Since         string   `json:"since,omitempty"`
-	Until         string   `json:"until,omitempty"`
-	Name          string   `json:"name"`
-	Color         string   `json:"color"`
-	TrackForm     string   `json:"trackForm"`
-	NodeKind      string   `json:"nodeKind,omitempty"`
-	FacilityKind  string   `json:"facilityKind,omitempty"`
-	StationID     string   `json:"stationId,omitempty"`
-	TrackID       string   `json:"trackId,omitempty"`
-	StopGroupID   string   `json:"stopGroupId,omitempty"`
-	StopDirection string   `json:"stopDirection,omitempty"`
-	Geometry      Geometry `json:"geometry"`
+	ID            string      `json:"id"`
+	Kind          string      `json:"kind"`
+	Way           string      `json:"way"`
+	Mode          string      `json:"mode,omitempty"`
+	Gauge         *int        `json:"gauge,omitempty"`
+	Grade         string      `json:"grade,omitempty"`
+	Level         *int        `json:"level,omitempty"`
+	Since         string      `json:"since,omitempty"`
+	Until         string      `json:"until,omitempty"`
+	Name          string      `json:"name"`
+	Color         string      `json:"color"`
+	TrackForm     string      `json:"trackForm"`
+	NodeKind      string      `json:"nodeKind,omitempty"`
+	FacilityKind  string      `json:"facilityKind,omitempty"`
+	StationID     string      `json:"stationId,omitempty"`
+	TrackID       string      `json:"trackId,omitempty"`
+	StopGroupID   string      `json:"stopGroupId,omitempty"`
+	StopDirection string      `json:"stopDirection,omitempty"`
+	PlatformPoint *[2]float64 `json:"platformPoint,omitempty"`
+	Geometry      Geometry    `json:"geometry"`
 }
 
 type RouteLeg struct {
@@ -90,28 +91,29 @@ type Projection struct {
 }
 
 type FeatureProperties struct {
-	Kind          string `json:"kind"`
-	Mode          string `json:"mode"`
-	LineID        string `json:"lineId"`
-	Number        string `json:"number"`
-	Name          string `json:"name"`
-	Color         string `json:"color"`
-	TrackForm     string `json:"trackForm"`
-	NodeKind      string `json:"nodeKind,omitempty"`
-	FacilityKind  string `json:"facilityKind,omitempty"`
-	StationID     string `json:"stationId,omitempty"`
-	TrackID       string `json:"trackId,omitempty"`
-	StopGroupID   string `json:"stopGroupId,omitempty"`
-	StopDirection string `json:"stopDirection,omitempty"`
-	Layer         string `json:"layer,omitempty"`
-	InfraID       string `json:"infraId,omitempty"`
-	Way           string `json:"way,omitempty"`
-	Gauge         *int   `json:"gauge,omitempty"`
-	Grade         string `json:"grade,omitempty"`
-	Level         *int   `json:"level,omitempty"`
-	Propulsion    string `json:"propulsion,omitempty"`
-	Since         string `json:"since,omitempty"`
-	Until         string `json:"until,omitempty"`
+	Kind          string      `json:"kind"`
+	Mode          string      `json:"mode"`
+	LineID        string      `json:"lineId"`
+	Number        string      `json:"number"`
+	Name          string      `json:"name"`
+	Color         string      `json:"color"`
+	TrackForm     string      `json:"trackForm"`
+	NodeKind      string      `json:"nodeKind,omitempty"`
+	FacilityKind  string      `json:"facilityKind,omitempty"`
+	StationID     string      `json:"stationId,omitempty"`
+	TrackID       string      `json:"trackId,omitempty"`
+	StopGroupID   string      `json:"stopGroupId,omitempty"`
+	StopDirection string      `json:"stopDirection,omitempty"`
+	PlatformPoint *[2]float64 `json:"platformPoint,omitempty"`
+	Layer         string      `json:"layer,omitempty"`
+	InfraID       string      `json:"infraId,omitempty"`
+	Way           string      `json:"way,omitempty"`
+	Gauge         *int        `json:"gauge,omitempty"`
+	Grade         string      `json:"grade,omitempty"`
+	Level         *int        `json:"level,omitempty"`
+	Propulsion    string      `json:"propulsion,omitempty"`
+	Since         string      `json:"since,omitempty"`
+	Until         string      `json:"until,omitempty"`
 }
 
 type Feature struct {
@@ -258,7 +260,7 @@ func Features(p Projection, date string) []Feature {
 				mode = "trolleybus"
 			}
 		}
-		out = append(out, Feature{Type: "Feature", Geometry: v.Geometry, Properties: FeatureProperties{Kind: v.Kind, Mode: mode, LineID: v.ID, Name: v.Name, Color: v.Color, TrackForm: v.TrackForm, NodeKind: v.NodeKind, FacilityKind: v.FacilityKind, StationID: v.StationID, TrackID: v.TrackID, StopGroupID: v.StopGroupID, StopDirection: v.StopDirection, Layer: "infra", InfraID: v.ID, Way: v.Way, Gauge: v.Gauge, Grade: v.Grade, Level: v.Level, Since: v.Since, Until: v.Until}})
+		out = append(out, Feature{Type: "Feature", Geometry: v.Geometry, Properties: FeatureProperties{Kind: v.Kind, Mode: mode, LineID: v.ID, Name: v.Name, Color: v.Color, TrackForm: v.TrackForm, NodeKind: v.NodeKind, FacilityKind: v.FacilityKind, StationID: v.StationID, TrackID: v.TrackID, StopGroupID: v.StopGroupID, StopDirection: v.StopDirection, PlatformPoint: v.PlatformPoint, Layer: "infra", InfraID: v.ID, Way: v.Way, Gauge: v.Gauge, Grade: v.Grade, Level: v.Level, Since: v.Since, Until: v.Until}})
 	}
 	for _, r := range p.Routes {
 		if date != "" && !Alive(r.Since, r.Until, date) {

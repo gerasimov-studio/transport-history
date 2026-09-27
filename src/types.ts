@@ -34,10 +34,10 @@ export const WAY_MODES: Record<TransportWay, TransportMode[]> = {
 
 export const MODE_COLORS: Record<TransportMode, string> = {
   railway: '#735f4b',
-  metro: '#d6083b',
-  tram: '#c45c26',
-  trolleybus: '#2e7d4f',
-  bus: '#3d6ea8',
+  metro: '#171717',
+  tram: '#c43b32',
+  trolleybus: '#27824a',
+  bus: '#d5a900',
 }
 
 export const WAY_COLORS: Record<TransportWay, string> = {
@@ -132,6 +132,7 @@ export type NetworkProperties = {
   trackId?: string
   stopGroupId?: string
   stopDirection?: StopDirection
+  platformPoint?: [number, number]
   layer?: EditorLayer
   infraId?: string
   way?: TransportWay
@@ -177,6 +178,7 @@ export type InfraEntity = {
   trackId?: string
   stopGroupId?: string
   stopDirection?: StopDirection
+  platformPoint?: [number, number]
   geometry: NetworkFeature['geometry']
 }
 
