@@ -89,6 +89,8 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		s.reviewChangeset(w, r)
 	case r.Method == http.MethodPost && path == "/api/objects/commit":
 		s.objectCommit(w, r)
+	case r.Method == http.MethodPost && path == "/api/osm/changesets":
+		s.osmCommit(w, r)
 	case r.Method == http.MethodPost && path == "/api/commit":
 		s.legacyCommit(w, r)
 	case r.Method == http.MethodPost && path == "/api/snapshots":

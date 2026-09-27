@@ -232,6 +232,41 @@ func (s *Server) publishChangeset(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	var osmRaw json.RawMessage
+	var workspace string
+	osmErr := s.pool.QueryRow(r.Context(), `SELECT c.workspace_id,o.osm_change FROM changesets c JOIN osm_changesets o ON o.id=c.id WHERE c.id=$1`, id).Scan(&workspace, &osmRaw)
+	if osmErr == nil {
+		change, decodeErr := domain.DecodeOSMChange(osmRaw)
+		if decodeErr != nil {
+			s.fail(w, decodeErr)
+			return
+		}
+		tx, txErr := s.pool.Begin(r.Context())
+		if txErr != nil {
+			s.fail(w, txErr)
+			return
+		}
+		defer tx.Rollback(r.Context())
+		if txErr = applyOSMChange(r.Context(), tx, workspace, id, change); txErr == nil {
+			_, txErr = tx.Exec(r.Context(), `UPDATE changesets SET status='published',published_at=now(),updated_at=now() WHERE id=$1 AND status='submitted'`, id)
+		}
+		if txErr == nil {
+			_, txErr = tx.Exec(r.Context(), `INSERT INTO changeset_reviews(changeset_id,reviewer_id,decision) VALUES($1,$2,'published')`, id, u.ID)
+		}
+		if txErr == nil {
+			txErr = tx.Commit(r.Context())
+		}
+		if txErr != nil {
+			s.fail(w, txErr)
+			return
+		}
+		httpjson.Write(w, 200, map[string]any{"id": id, "status": "published", "events": osmOperationCount(change)})
+		return
+	}
+	if osmErr != pgx.ErrNoRows {
+		s.fail(w, osmErr)
+		return
+	}
 	count, err := s.publishOperations(r.Context(), op, date, u.Username, mode, title, summary)
 	if err != nil {
 		s.fail(w, err)

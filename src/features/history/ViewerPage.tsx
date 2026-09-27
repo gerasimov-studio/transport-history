@@ -58,7 +58,15 @@ export function ViewerPage() {
     }, { replace: true })
   }, [setSearchParams])
 
-  const city = catalog?.cities[0]
+  const city = catalog?.cities[0] ?? {
+    id: 'world',
+    name: t('app.title'),
+    aliases: [],
+    center: [0, 20] as [number, number],
+    zoom: 2,
+    minZoom: 2,
+    maxZoom: 22,
+  }
   const citySnapshots = useMemo(
     () => (catalog && city ? snapshotsForCity(catalog, city.id) : []),
     [catalog, city],
@@ -176,7 +184,7 @@ export function ViewerPage() {
     return <p className="app-status">{catalogError}</p>
   }
 
-  if (!catalog || !city) {
+  if (!catalog) {
     return <p className="app-status">{t('loading')}</p>
   }
 

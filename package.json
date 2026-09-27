@@ -7,11 +7,6 @@
     "dev": "vite",
     "build": "tsc -b && vite build && npm run size:check",
     "size:check": "node scripts/check-bundle-size.mjs",
-    "data:naryn-trolleybus": "node --experimental-strip-types --no-warnings scripts/seed-naryn-trolleybus-history.ts",
-    "data:sarajevo-tram": "node --experimental-strip-types --no-warnings scripts/seed-sarajevo-tram-history.ts",
-    "data:sarajevo-trolleybus": "node --experimental-strip-types --no-warnings scripts/seed-sarajevo-trolleybus-history.ts",
-    "data:balakovo-trolleybus": "node --experimental-strip-types --no-warnings scripts/seed-balakovo-trolleybus-history.ts",
-    "data:baku-metro": "node --experimental-strip-types --no-warnings scripts/seed-baku-metro-history.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },

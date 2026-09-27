@@ -41,6 +41,11 @@ Code should be organised by domain even while it shares a deployable binary:
 Authentication, history, editor, moderation, administration, snapshots and
 export are all implemented by the Go API.
 
+The canonical transport network is an OSM 0.6-compatible temporal graph. Its
+nodes, ways, relations, tags and relation membership are versioned by published
+changesets in real-world chronological order. Spatial map tables are disposable
+read models reproducible from that graph. See `docs/OSM_HISTORY_MODEL.md`.
+
 ## Migration rules
 
 - Keep API paths and response shapes compatible with the frontend.

@@ -274,3 +274,118 @@ CREATE TABLE IF NOT EXISTS changeset_reviews (
   comment text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Canonical OSM 0.6 history graph. network_* tables are only disposable read
+-- projections and contain no authoritative transport data.
+CREATE TABLE IF NOT EXISTS osm_changesets (
+  id text PRIMARY KEY REFERENCES changesets (id) ON DELETE CASCADE,
+  sequence bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
+  osm_change jsonb NOT NULL,
+  correction boolean NOT NULL DEFAULT false,
+  CHECK (osm_change->>'version' = '0.6')
+);
+
+CREATE TABLE IF NOT EXISTS osm_node_versions (
+  workspace_id text NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+  id bigint NOT NULL, version integer NOT NULL CHECK (version > 0),
+  changeset_id text NOT NULL REFERENCES osm_changesets (id) ON DELETE RESTRICT,
+  visible boolean NOT NULL DEFAULT true,
+  lat double precision, lon double precision,
+  tags jsonb NOT NULL DEFAULT '{}',
+  PRIMARY KEY (workspace_id, id, version),
+  CHECK (NOT visible OR (lat BETWEEN -90 AND 90 AND lon BETWEEN -180 AND 180)),
+  CHECK (jsonb_typeof(tags) = 'object')
+);
+
+CREATE TABLE IF NOT EXISTS osm_way_versions (
+  workspace_id text NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+  id bigint NOT NULL, version integer NOT NULL CHECK (version > 0),
+  changeset_id text NOT NULL REFERENCES osm_changesets (id) ON DELETE RESTRICT,
+  visible boolean NOT NULL DEFAULT true,
+  tags jsonb NOT NULL DEFAULT '{}',
+  PRIMARY KEY (workspace_id, id, version),
+  CHECK (jsonb_typeof(tags) = 'object')
+);
+
+CREATE TABLE IF NOT EXISTS osm_way_nodes (
+  workspace_id text NOT NULL, way_id bigint NOT NULL, way_version integer NOT NULL,
+  sequence integer NOT NULL CHECK (sequence >= 0), node_id bigint NOT NULL,
+  PRIMARY KEY (workspace_id, way_id, way_version, sequence),
+  FOREIGN KEY (workspace_id, way_id, way_version)
+    REFERENCES osm_way_versions (workspace_id, id, version) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS osm_relation_versions (
+  workspace_id text NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+  id bigint NOT NULL, version integer NOT NULL CHECK (version > 0),
+  changeset_id text NOT NULL REFERENCES osm_changesets (id) ON DELETE RESTRICT,
+  visible boolean NOT NULL DEFAULT true,
+  tags jsonb NOT NULL DEFAULT '{}',
+  PRIMARY KEY (workspace_id, id, version),
+  CHECK (jsonb_typeof(tags) = 'object')
+);
+
+CREATE TABLE IF NOT EXISTS osm_relation_members (
+  workspace_id text NOT NULL, relation_id bigint NOT NULL, relation_version integer NOT NULL,
+  sequence integer NOT NULL CHECK (sequence >= 0),
+  member_type text NOT NULL CHECK (member_type IN ('node', 'way', 'relation')),
+  member_id bigint NOT NULL, role text NOT NULL DEFAULT '',
+  PRIMARY KEY (workspace_id, relation_id, relation_version, sequence),
+  FOREIGN KEY (workspace_id, relation_id, relation_version)
+    REFERENCES osm_relation_versions (workspace_id, id, version) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS osm_source_refs (
+  workspace_id text NOT NULL REFERENCES workspaces (id) ON DELETE CASCADE,
+  primitive_type text NOT NULL CHECK (primitive_type IN ('node', 'way', 'relation')),
+  primitive_id bigint NOT NULL, source text NOT NULL,
+  source_type text NOT NULL CHECK (source_type IN ('node', 'way', 'relation', 'dataset')),
+  source_id text NOT NULL, source_version integer,
+  imported_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (workspace_id, primitive_type, primitive_id, source, source_type, source_id)
+);
+
+CREATE INDEX IF NOT EXISTS osm_nodes_changeset_idx ON osm_node_versions (changeset_id);
+CREATE INDEX IF NOT EXISTS osm_ways_changeset_idx ON osm_way_versions (changeset_id);
+CREATE INDEX IF NOT EXISTS osm_relations_changeset_idx ON osm_relation_versions (changeset_id);
+CREATE INDEX IF NOT EXISTS osm_way_nodes_node_idx ON osm_way_nodes (workspace_id, node_id);
+CREATE INDEX IF NOT EXISTS osm_relation_members_ref_idx ON osm_relation_members (workspace_id, member_type, member_id);
+
+CREATE TABLE IF NOT EXISTS app_migrations (
+  id text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- There is intentionally no data migration from the prototype model. All
+-- existing transport content was demonstrational. Keep accounts and the main
+-- workspace, clear every canonical and projected transport record once.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM app_migrations WHERE id = '0001_empty_osm_history') THEN
+    TRUNCATE TABLE
+      changeset_reviews,
+      osm_relation_members,
+      osm_relation_versions,
+      osm_way_nodes,
+      osm_way_versions,
+      osm_node_versions,
+      osm_source_refs,
+      osm_changesets,
+      changesets,
+      projection_checkpoints,
+      network_routes,
+      network_infra,
+      transport_system_lineage,
+      transport_system_localities,
+      transport_system_names,
+      transport_systems,
+      features,
+      lines,
+      snapshots,
+      events,
+      cities
+    RESTART IDENTITY CASCADE;
+    DELETE FROM workspaces WHERE id <> 'main';
+    INSERT INTO app_migrations(id) VALUES ('0001_empty_osm_history');
+  END IF;
+END $$;
