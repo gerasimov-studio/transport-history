@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && npm run size:check",
     "size:check": "node scripts/check-bundle-size.mjs",
+    "data:lund-tram": "node --experimental-strip-types --no-warnings scripts/import-lund-osm.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },

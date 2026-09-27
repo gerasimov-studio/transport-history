@@ -40,6 +40,20 @@ func MigrateAndSeed(ctx context.Context, pool *pgxpool.Pool, schemaPath string) 
 	if superuser == "" {
 		superuser = editor
 	}
+	var superuserExists bool
+	if err = pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM users WHERE username=$1)`, superuser).Scan(&superuserExists); err != nil {
+		return err
+	}
+	if !superuserExists {
+		password := env("SUPERUSER_PASSWORD", env("EDITOR_PASSWORD", "editor"))
+		hash, hashErr := auth.HashPassword(password)
+		if hashErr != nil {
+			return hashErr
+		}
+		if _, err = pool.Exec(ctx, `INSERT INTO users(username,password_hash,role) VALUES($1,$2,'superuser')`, superuser, hash); err != nil {
+			return err
+		}
+	}
 	if _, err = pool.Exec(ctx, `UPDATE users SET role='moderator' WHERE role IN ('admin','superuser') AND username<>$1`, superuser); err != nil {
 		return err
 	}

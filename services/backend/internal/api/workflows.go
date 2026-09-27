@@ -260,6 +260,10 @@ func (s *Server) publishChangeset(w http.ResponseWriter, r *http.Request) {
 			s.fail(w, txErr)
 			return
 		}
+		if txErr = s.syncOSMProjection(r.Context(), workspace); txErr != nil {
+			s.fail(w, txErr)
+			return
+		}
 		httpjson.Write(w, 200, map[string]any{"id": id, "status": "published", "events": osmOperationCount(change)})
 		return
 	}

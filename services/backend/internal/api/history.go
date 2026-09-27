@@ -146,6 +146,23 @@ func (s *Server) SyncAllProjections(ctx context.Context) error {
 			return err
 		}
 	}
+	rows, err = s.pool.Query(ctx, `SELECT DISTINCT c.workspace_id FROM changesets c JOIN osm_changesets o ON o.id=c.id WHERE c.status='published' ORDER BY c.workspace_id`)
+	if err != nil {
+		return err
+	}
+	osmWorkspaces := []string{}
+	for rows.Next() {
+		var workspace string
+		if rows.Scan(&workspace) == nil {
+			osmWorkspaces = append(osmWorkspaces, workspace)
+		}
+	}
+	rows.Close()
+	for _, workspace := range osmWorkspaces {
+		if err = s.syncOSMProjection(ctx, workspace); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
