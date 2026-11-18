@@ -67,6 +67,8 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		s.state(w, r)
 	case r.Method == http.MethodGet && path == "/api/map":
 		s.mapView(w, r)
+	case r.Method == http.MethodGet && path == "/api/render":
+		s.renderView(w, r)
 	case r.Method == http.MethodGet && path == "/api/export.svg":
 		s.exportSVG(w, r)
 	case r.Method == http.MethodGet && snapshotNetworkPath.MatchString(path):

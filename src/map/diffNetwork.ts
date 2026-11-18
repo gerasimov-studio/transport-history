@@ -1,4 +1,4 @@
-import { infraAliveAt, type InfraEntity, type NetworkState, type RouteEntity } from '../types'
+import { infraAliveAt, type NetworkFeature, type NetworkState, type RouteEntity } from '../types'
 
 export type NetworkDiff = {
   addedInfra: Set<string>
@@ -26,12 +26,8 @@ export function diffNetwork(previous: NetworkState | null, current: NetworkState
     return emptyDiff()
   }
 
-  const beforeInfra = new Map(
-    previous.infra.filter((entity) => infraAliveAt(entity, previous.date)).map((entity) => [entity.id, entity]),
-  )
-  const afterInfra = new Map(
-    current.infra.filter((entity) => infraAliveAt(entity, current.date)).map((entity) => [entity.id, entity]),
-  )
+  const beforeInfra = infrastructureFeatures(previous)
+  const afterInfra = infrastructureFeatures(current)
   const beforeRoutes = new Map(
     previous.routes.filter((entity) => infraAliveAt(entity, previous.date)).map((entity) => [entity.id, entity]),
   )
@@ -42,7 +38,7 @@ export function diffNetwork(previous: NetworkState | null, current: NetworkState
   return {
     addedInfra: onlyIn(afterInfra, beforeInfra),
     removedInfra: onlyIn(beforeInfra, afterInfra),
-    changedInfra: changedIn(beforeInfra, afterInfra, fingerprintInfra),
+    changedInfra: changedIn(beforeInfra, afterInfra, fingerprintFeature),
     addedRoutes: onlyIn(afterRoutes, beforeRoutes),
     removedRoutes: onlyIn(beforeRoutes, afterRoutes),
     changedRoutes: changedIn(beforeRoutes, afterRoutes, fingerprintRoute),
@@ -82,26 +78,14 @@ function changedIn<T>(before: Map<string, T>, after: Map<string, T>, fingerprint
   return ids
 }
 
-function fingerprintInfra(entity: InfraEntity): string {
-  return JSON.stringify([
-    entity.kind,
-    entity.name,
-    entity.color,
-    entity.trackForm,
-    entity.nodeKind,
-    entity.facilityKind,
-    entity.stationId,
-    entity.trackId,
-    entity.stopGroupId,
-    entity.stopDirection,
-    entity.platformPoint,
-    entity.gauge,
-    entity.grade,
-    entity.level,
-    entity.since,
-    entity.until,
-    entity.geometry,
-  ])
+function infrastructureFeatures(state: NetworkState): Map<string, NetworkFeature> {
+  return new Map(state.features
+    .filter((feature) => feature.properties.layer !== 'route')
+    .map((feature) => [feature.properties.infraId ?? feature.properties.lineId, feature]))
+}
+
+function fingerprintFeature(feature: NetworkFeature): string {
+  return JSON.stringify([feature.properties, feature.geometry])
 }
 
 function fingerprintRoute(entity: RouteEntity): string {

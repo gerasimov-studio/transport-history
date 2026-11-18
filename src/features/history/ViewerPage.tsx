@@ -99,7 +99,7 @@ export function ViewerPage() {
     }
     return dates.filter((item) => item < selectedDate).at(-1) ?? null
   }, [dates, selectedDate])
-  const { state: previous } = useViewportState(viewport, previousDate, workspaceId)
+  const { state: previous } = useViewportState(viewport, previousDate, workspaceId, showChanges)
   const activeSnapshots = useMemo(
     () =>
       selectedDate

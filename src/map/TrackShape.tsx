@@ -1,6 +1,7 @@
 import L from 'leaflet'
+import { memo } from 'react'
 import { CircleMarker, LayerGroup, Marker, Polygon, Polyline, Popup, Tooltip, useMap } from 'react-leaflet'
-import { alongPolyline, DOUBLE_TRACK_DETAIL_ZOOM, doubleTrackVisibleGap, offsetPolyline, singleTrackJoins } from './geometry'
+import { alongPolyline, DOUBLE_TRACK_DETAIL_ZOOM, doubleTrackVisibleGap, offsetPolyline, singleTrackJoins, type SingleTrackIndex } from './geometry'
 import { STOP_DIRECTION_DETAIL_ZOOM, strokeScale } from './lod'
 import { type NetworkFeature, type NodeKind } from '../types'
 import { useI18n, type Locale } from '../i18n'
@@ -15,6 +16,8 @@ type TrackShapeProps = {
   accent?: 'added' | 'removed' | 'changed'
   zoom?: number
   networkFeatures?: NetworkFeature[]
+  singleTrackIndex?: SingleTrackIndex
+  trackById?: ReadonlyMap<string, NetworkFeature>
   onSelect?: () => void
 }
 
@@ -22,7 +25,7 @@ function stopPropagation(event: { originalEvent: Event }) {
   L.DomEvent.stopPropagation(event.originalEvent)
 }
 
-export function TrackShape({
+export const TrackShape = memo(function TrackShape({
   feature,
   selected = false,
   showPopup = false,
@@ -31,6 +34,8 @@ export function TrackShape({
   accent,
   zoom = 13,
   networkFeatures = [],
+  singleTrackIndex,
+  trackById,
   onSelect,
 }: TrackShapeProps) {
   const { locale } = useI18n()
@@ -63,7 +68,7 @@ export function TrackShape({
     const [lng, lat] = feature.geometry.coordinates
     const nodeKind = feature.properties.nodeKind
     const stopAngle = feature.properties.kind === 'stop'
-      ? platformFacingAngle(map, feature, networkFeatures)
+      ? platformFacingAngle(map, feature, networkFeatures, trackById)
       : undefined
     const center = [lat, lng] as [number, number]
     if (
@@ -141,15 +146,21 @@ export function TrackShape({
             events={events}
             locale={locale}
             networkFeatures={networkFeatures}
+            singleTrackIndex={singleTrackIndex}
           />
       ))}
     </LayerGroup>
   )
-}
+})
 
-function platformFacingAngle(map: L.Map, stop: NetworkFeature, features: NetworkFeature[]) {
+function platformFacingAngle(
+  map: L.Map,
+  stop: NetworkFeature,
+  features: NetworkFeature[],
+  trackById?: ReadonlyMap<string, NetworkFeature>,
+) {
   if (stop.geometry.type !== 'Point' || !stop.properties.platformPoint) return undefined
-  const track = features.find((candidate) =>
+  const track = (stop.properties.trackId ? trackById?.get(stop.properties.trackId) : undefined) ?? features.find((candidate) =>
     candidate.properties.layer === 'infra' &&
     candidate.properties.kind === 'track' &&
     candidate.properties.infraId === stop.properties.trackId,
@@ -215,6 +226,7 @@ function TrackLine({
   events,
   locale,
   networkFeatures,
+  singleTrackIndex,
 }: {
   feature: NetworkFeature
   coordinates: [number, number][]
@@ -227,6 +239,7 @@ function TrackLine({
   events?: { click: (event: { originalEvent: Event }) => void }
   locale: Locale
   networkFeatures: NetworkFeature[]
+  singleTrackIndex?: SingleTrackIndex
 }) {
   if (coordinates.length < 2) {
     return null
@@ -310,7 +323,7 @@ function TrackLine({
       const trackWeight = Math.max(1.2, (selected ? 3.5 : isRoute ? 3.25 : 2.35) * strokeScale(zoom))
       const visibleGap = doubleTrackVisibleGap(feature.properties.mode, zoom, selected)
       const separation = (trackWeight + visibleGap) / 2
-      const joins = singleTrackJoins(feature, coordinates, networkFeatures)
+      const joins = singleTrackJoins(feature, coordinates, networkFeatures, singleTrackIndex)
       const trackLines = [-separation, separation].map((offset) =>
         offsetPolyline(coordinates, offset, zoom, joins).map(([lng, lat]) => [lat, lng] as [number, number]),
       )

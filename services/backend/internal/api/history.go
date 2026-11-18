@@ -399,7 +399,7 @@ type mapState struct {
 	Date       string             `json:"date"`
 	Dates      []string           `json:"dates"`
 	Events     []domain.Chronicle `json:"events"`
-	Infra      []domain.Infra     `json:"infra"`
+	Infra      []domain.Infra     `json:"infra,omitempty"`
 	Routes     []domain.Route     `json:"routes"`
 	Chronicles []domain.Chronicle `json:"chronicles"`
 	Features   []domain.Feature   `json:"features"`

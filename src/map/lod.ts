@@ -73,6 +73,8 @@ export function featureInView(feature: NetworkFeature, bounds: L.LatLngBounds): 
   return box ? bounds.pad(0.45).intersects(box) : false
 }
 
+const geometryBoundsCache = new WeakMap<NetworkFeature['geometry'], L.LatLngBounds | null>()
+
 export function strokeScale(zoom: number): number {
   if (zoom <= 12) {
     return 1
@@ -86,12 +88,16 @@ export function strokeScale(zoom: number): number {
 export function geometryBounds(
   geometry: NetworkFeature['geometry'],
 ): L.LatLngBounds | null {
+  const cached = geometryBoundsCache.get(geometry)
+  if (cached !== undefined) return cached
   if (geometry.type === 'Point') {
     const [lng, lat] = geometry.coordinates
-    return L.latLngBounds([
+    const bounds = L.latLngBounds([
       [lat, lng],
       [lat, lng],
     ])
+    geometryBoundsCache.set(geometry, bounds)
+    return bounds
   }
   const lines =
     geometry.type === 'LineString'
@@ -107,5 +113,7 @@ export function geometryBounds(
       points.push([lat, lng])
     }
   }
-  return points.length ? L.latLngBounds(points) : null
+  const bounds = points.length ? L.latLngBounds(points) : null
+  geometryBoundsCache.set(geometry, bounds)
+  return bounds
 }

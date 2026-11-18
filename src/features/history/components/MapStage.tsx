@@ -4,7 +4,7 @@ import L from 'leaflet'
 import { TrackShape } from '../../../map/TrackShape'
 import { featureAtZoom, featureInView, STOP_DIRECTION_DETAIL_ZOOM, useMapView } from '../../../map/lod'
 import { routeRibbons } from '../../../map/segmentLabels'
-import { routeRenderFeatures } from '../../../map/routeTopology'
+import { buildSingleTrackIndex } from '../../../map/geometry'
 import { MODE_COLORS, type CatalogCity, type MapPlace, type MapViewport, type NetworkFeature } from '../../../types'
 import { Basemap } from '../../../components/Basemap'
 import { RouteShields } from '../../../components/RouteShields'
@@ -76,7 +76,11 @@ function ViewerNetwork({
 }) {
   const map = useMap()
   const view = useMapView()
-  const renderedFeatures = useMemo(() => routeRenderFeatures(features), [features])
+  const renderedFeatures = features
+  const singleTrackIndex = useMemo(() => buildSingleTrackIndex(renderedFeatures), [renderedFeatures])
+  const trackById = useMemo(() => new Map(renderedFeatures
+    .filter((feature) => feature.properties.layer === 'infra' && feature.properties.kind === 'track')
+    .map((feature) => [feature.properties.infraId ?? feature.properties.lineId, feature])), [renderedFeatures])
   useEffect(() => {
     onViewportChange?.({
       center: [view.bounds.getCenter().lat, view.bounds.getCenter().lng],
@@ -123,6 +127,8 @@ function ViewerNetwork({
           showPopup
           zoom={view.zoom}
           networkFeatures={renderedFeatures}
+          singleTrackIndex={singleTrackIndex}
+          trackById={trackById}
         />
       ))}
       <RouteShields ribbons={ribbons} />

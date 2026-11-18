@@ -3,6 +3,24 @@ import type { NetworkFeature, TransportMode } from '../types'
 
 export const DOUBLE_TRACK_DETAIL_ZOOM = 14
 
+export type SingleTrackIndex = Map<string, [number, number][][]>
+
+export function buildSingleTrackIndex(features: NetworkFeature[]): SingleTrackIndex {
+  const index: SingleTrackIndex = new Map()
+  for (const feature of features) {
+    if (feature.properties.kind !== 'track' || feature.properties.trackForm === 'double') continue
+    const lines = feature.geometry.type === 'LineString'
+      ? [feature.geometry.coordinates]
+      : feature.geometry.type === 'MultiLineString' ? feature.geometry.coordinates : []
+    if (!lines.length) continue
+    const key = trackTopologyKey(feature)
+    const current = index.get(key) ?? []
+    current.push(...lines)
+    index.set(key, current)
+  }
+  return index
+}
+
 export function doubleTrackVisibleGap(mode: TransportMode, zoom: number, selected = false): number {
   const base = selected ? 2.8 : 2.2
   return mode === 'trolleybus' ? base * 1.35 ** Math.max(0, zoom - DOUBLE_TRACK_DETAIL_ZOOM) : base
@@ -52,11 +70,17 @@ export function singleTrackJoins(
   feature: NetworkFeature,
   coordinates: [number, number][],
   features: NetworkFeature[],
+  index?: SingleTrackIndex,
 ): { start: boolean; end: boolean } {
   if (feature.properties.trackForm !== 'double' || coordinates.length < 2) {
     return { start: false, end: false }
   }
-  const joined = [coordinates[0]!, coordinates.at(-1)!].map((endpoint) => features.some((candidate) => {
+  const indexedLines = index?.get(trackTopologyKey(feature))
+  const joined = [coordinates[0]!, coordinates.at(-1)!].map((endpoint) => indexedLines
+    ? indexedLines.some((line) => line.length > 1 && line.some((point, lineIndex) =>
+      sameCoordinate(endpoint, point) || (lineIndex > 0 && pointOnSegment(endpoint, line[lineIndex - 1]!, point)),
+    ))
+    : features.some((candidate) => {
     if (
       candidate === feature || candidate.properties.kind !== 'track' ||
       candidate.properties.trackForm === 'double' || candidate.properties.layer !== feature.properties.layer ||
@@ -70,6 +94,10 @@ export function singleTrackJoins(
     ))
   }))
   return { start: joined[0]!, end: joined[1]! }
+}
+
+function trackTopologyKey(feature: NetworkFeature): string {
+  return [feature.properties.layer ?? '', feature.properties.mode, feature.properties.way ?? ''].join('|')
 }
 
 function sameCoordinate(a: [number, number], b: [number, number]): boolean {
