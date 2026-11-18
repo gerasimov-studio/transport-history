@@ -81,9 +81,13 @@ versions are retained in provenance records.
 
 Tampere imports the complete tram infrastructure graph, not only ways used by
 today's passenger routes. The opening changeset therefore includes the depot
-grounds and yard tracks. Each phase uses the OSM route-relation versions that
-describe service in that period and carries an explicit end date when the
-route pattern is superseded.
+grounds and yard tracks. Its published history is: the initial line 1 from
+Sorin aukio to Kaupin kampus and line 3 from Hervantajärvi to Pyynikintori on
+9 August 2021; the line 3 extension from Pyynikintori to Santalahti on 7 August
+2023; and the line 1 extension from Santalahti to Pyhällönpuisto on 7 January
+2025. Each phase uses corrected OSM route-relation versions that describe the
+service in that period and carries an explicit end date when the route pattern
+is superseded.
 
 Every imported system has its own stable `scope_id`. This scope partitions the
 disposable projection and the chronicle; it does not make a city a storage

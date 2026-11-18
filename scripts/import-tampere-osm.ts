@@ -45,12 +45,17 @@ async function tampereInfrastructure() {
   const query = `[out:xml][timeout:90];(way[railway=tram](61.43,23.62,61.55,23.95);way[railway=light_rail](61.43,23.62,61.55,23.95);way[depot=tram](61.43,23.62,61.55,23.95););(._;>;);out meta;`
   let lastStatus = 0
   for (const endpoint of ['https://overpass.kumi.systems/api/interpreter', 'https://overpass-api.de/api/interpreter']) {
-    const response = await fetch(endpoint, {
-      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'user-agent': 'transporthistory/1.0' },
-      body: new URLSearchParams({ data: query }),
-    })
-    if (response.ok) return parse(await response.text())
-    lastStatus = response.status
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded', 'user-agent': 'transporthistory/1.0' },
+        body: new URLSearchParams({ data: query }),
+        signal: AbortSignal.timeout(120_000),
+      })
+      if (response.ok) return parse(await response.text())
+      lastStatus = response.status
+    } catch (error) {
+      if (error instanceof Error && error.name !== 'TimeoutError') throw error
+    }
   }
   throw new Error(`Overpass infrastructure: ${lastStatus}`)
 }
@@ -68,7 +73,10 @@ const ways = unique([...documents.flatMap((document) => document.ways), ...infra
 const routePhases = [
   { number: 1, start: '2021-08-09', end: '2023-08-06', routes: [[13072751, 1], [13072752, 1], [12758105, 3], [12758106, 3]] },
   { number: 2, start: '2023-08-07', end: '2025-01-06', routes: [[13072751, 3], [13072752, 3], [12758105, 6], [12758106, 7]] },
-  { number: 3, start: '2025-01-07', end: '', routes: [[13072751, 8], [13072752, 8], [16321254, 4], [16321255, 4]] },
+  // The opening-day relations were incomplete. These later OSM versions are
+  // data corrections for the same 2025 service pattern: they include all
+  // Pyhällönpuisto stops, platforms and the subsequently split way members.
+  { number: 3, start: '2025-01-07', end: '', routes: [[13072751, 23], [13072752, 25], [16321254, 12], [16321255, 12]] },
 ] as const
 
 async function historicalRoutes(phase: typeof routePhases[number]) {
@@ -121,9 +129,9 @@ for (const [phaseNumber, relations] of relationsByPhase) {
 }
 
 const phases = [
-  { number: 1, date: '2021-08-09', title: 'Tampere tramway opened', summary: 'Regular tram service began on the initial Tampere network.' },
-  { number: 2, date: '2023-08-07', title: 'Tram service extended to Santalahti', summary: 'The Pyynikintori–Santalahti section opened for regular service.' },
-  { number: 3, date: '2025-01-07', title: 'Tram service extended to Lentävänniemi', summary: 'The Santalahti–Lentävänniemi section opened and completed the western extension.' },
+  { number: 1, date: '2021-08-09', title: 'Tampere tramway opened', summary: 'Line 1 opened from Sorin aukio to Kaupin kampus (3.8 km), and line 3 opened from Hervantajärvi to Pyynikintori (11.5 km).' },
+  { number: 2, date: '2023-08-07', title: 'Line 3 extended to Santalahti', summary: 'The 2 km Pyynikintori–Santalahti section opened for regular service.' },
+  { number: 3, date: '2025-01-07', title: 'Line 1 extended to Pyhällönpuisto', summary: 'The 4.6 km Santalahti–Pyhällönpuisto section opened, extending line 1 through Lentävänniemi and completing the western branch.' },
 ]
 
 const login = await request('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) })
