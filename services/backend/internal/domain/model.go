@@ -52,17 +52,24 @@ type RouteLeg struct {
 	Geometry   *Geometry `json:"geometry,omitempty"`
 }
 
+type RoutePath struct {
+	Direction  string   `json:"direction,omitempty"`
+	SegmentIDs []string `json:"segmentIds"`
+	StopIDs    []string `json:"stopIds,omitempty"`
+}
+
 type Route struct {
-	ID         string     `json:"id"`
-	Mode       string     `json:"mode"`
-	Number     string     `json:"number"`
-	Name       string     `json:"name"`
-	Color      string     `json:"color"`
-	SegmentIDs []string   `json:"segmentIds"`
-	Geometry   *Geometry  `json:"geometry,omitempty"`
-	Legs       []RouteLeg `json:"legs,omitempty"`
-	Since      string     `json:"since,omitempty"`
-	Until      string     `json:"until,omitempty"`
+	ID         string      `json:"id"`
+	Mode       string      `json:"mode"`
+	Number     string      `json:"number"`
+	Name       string      `json:"name"`
+	Color      string      `json:"color"`
+	SegmentIDs []string    `json:"segmentIds"`
+	Geometry   *Geometry   `json:"geometry,omitempty"`
+	Legs       []RouteLeg  `json:"legs,omitempty"`
+	Paths      []RoutePath `json:"paths,omitempty"`
+	Since      string      `json:"since,omitempty"`
+	Until      string      `json:"until,omitempty"`
 }
 
 type Chronicle struct {
@@ -199,6 +206,9 @@ func NormalizeRoute(v Route) Route {
 	if v.Mode != "trolleybus" {
 		v.Legs = nil
 	}
+	if v.Mode != "bus" && v.Mode != "trolleybus" && len(v.Paths) == 0 && len(v.SegmentIDs) > 0 {
+		v.Paths = []RoutePath{{SegmentIDs: append([]string{}, v.SegmentIDs...)}}
+	}
 	if v.Until != "" && v.Since != "" && v.Until < v.Since {
 		v.Until = v.Since
 	}
@@ -266,7 +276,17 @@ func Features(p Projection, date string) []Feature {
 		if date != "" && !Alive(r.Since, r.Until, date) {
 			continue
 		}
-		if len(r.Legs) > 0 {
+		if len(r.Paths) > 0 {
+			seen := map[string]bool{}
+			for _, path := range r.Paths {
+				for _, id := range path.SegmentIDs {
+					if !seen[id] {
+						out = appendRouteSegment(out, p, r, id, date, "")
+						seen[id] = true
+					}
+				}
+			}
+		} else if len(r.Legs) > 0 {
 			for _, leg := range r.Legs {
 				if leg.Type == "autonomous" && leg.Geometry != nil && CoordinateCount(*leg.Geometry) >= 2 {
 					out = append(out, routeFeature(r, *leg.Geometry, "", "road", "autonomous", nil))

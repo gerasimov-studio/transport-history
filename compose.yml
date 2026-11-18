@@ -13,10 +13,8 @@ services:
       POSTGRES_PASSWORD: th
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    expose:
-      - "5432"
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U th -d th"]
       interval: 5s
@@ -39,10 +37,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    expose:
-      - "3001"
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
 
   web:
     build: .
@@ -51,9 +47,7 @@ services:
     depends_on:
       - api
     ports:
-      - "8081:80"
-    expose:
-      - "80"
+      - "127.0.0.1:8081:80"
     networks:
       - default
       - proxy

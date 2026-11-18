@@ -239,7 +239,8 @@ function TrackLine({
   const paint = linePaint(feature.properties.color, form, muted, selected, isTunnel, accent, zoom, emphasis)
   const railSolid = feature.properties.way === 'rail'
   if (railSolid) paint.dashArray = undefined
-  if (!isRoute) paint.weight += 0.65 * strokeScale(zoom)
+  paint.weight += (isRoute ? 1.1 : 0.35) * strokeScale(zoom)
+  if (!isRoute && !selected && !accent) paint.opacity *= 0.52
   const positions = coordinates.map(([lng, lat]) => [lat, lng] as [number, number])
   const casing =
     emphasis && !muted && !accent ? (
@@ -306,7 +307,7 @@ function TrackLine({
 
   if (form === 'double') {
     if (zoom >= DOUBLE_TRACK_DETAIL_ZOOM) {
-      const trackWeight = Math.max(1.35, (selected ? 2.8 : isRoute ? 2.1 : 2.6) * strokeScale(zoom))
+      const trackWeight = Math.max(1.2, (selected ? 3.5 : isRoute ? 3.25 : 2.35) * strokeScale(zoom))
       const visibleGap = doubleTrackVisibleGap(feature.properties.mode, zoom, selected)
       const separation = (trackWeight + visibleGap) / 2
       const joins = singleTrackJoins(feature, coordinates, networkFeatures)

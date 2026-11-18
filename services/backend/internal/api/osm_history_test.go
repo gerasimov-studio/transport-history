@@ -25,6 +25,12 @@ func TestStopGroupIDPairsDirectionalStops(t *testing.T) {
 	}
 }
 
+func TestStopGroupIDPairsLetteredPlatforms(t *testing.T) {
+	if a, b := stopGroupID("Hervantajärvi A", 1), stopGroupID("Hervantajärvi B", 2); a != b || a != "osm:stop-group:hervantajärvi" {
+		t.Fatalf("unexpected group ids %q and %q", a, b)
+	}
+}
+
 func TestPlatformPointUsesOSMPlatformGeometry(t *testing.T) {
 	nodes := map[int64]osmProjectionNode{
 		1: {lon: 13.0, lat: 55.0},

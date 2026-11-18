@@ -49,6 +49,16 @@ Routes use standard `type=route` relations. Systems use
 `type=transport_system` relations. Historical articles remain changeset
 metadata and are not encoded as artificial OSM tags.
 
+A route owns no duplicate track geometry. Each direction is an ordered path
+containing infrastructure-way references and stop references. Stops are
+infrastructure objects located on those ways, not free route points. The
+projection reconstructs every path between consecutive stops on the
+infrastructure graph, preferring the ways named by the source OSM route
+relation and using other infrastructure only to close a missing connection.
+It then stitches the referenced ways into continuous drawing chains. OSM way
+boundaries therefore remain available for editing and versioning but are never
+presented as breaks in a passenger route.
+
 Surface stops are projected from OSM `stop_position` nodes that are actual
 members of an infrastructure way. The projection stores that way as `trackId`
 and derives the served direction from route-relation membership; platform
@@ -61,8 +71,22 @@ Depot grounds are projected independently from routes as infrastructure areas.
 Every rail way in the imported depot extract is projected, including yard,
 workshop and access tracks that carry no passenger route.
 
-## Initial dataset
+## Published data
 
-The first demonstration dataset is Lund tramway. Its initial changeset is
-effective in December 2020 and creates the imported current OSM tram graph.
-Source primitive ids and versions are retained in provenance records.
+Imported transport networks are ordinary published map data, not seed or demo
+fixtures. Lund begins with its December 2020 opening changeset. Tampere begins
+with the August 2021 opening and continues with the Santalahti and
+Lentävänniemi extensions as separate changesets. Source primitive ids and
+versions are retained in provenance records.
+
+Tampere imports the complete tram infrastructure graph, not only ways used by
+today's passenger routes. The opening changeset therefore includes the depot
+grounds and yard tracks. Each phase uses the OSM route-relation versions that
+describe service in that period and carries an explicit end date when the
+route pattern is superseded.
+
+Every imported system has its own stable `scope_id`. This scope partitions the
+disposable projection and the chronicle; it does not make a city a storage
+container or an API boundary. Infrastructure primitives retain the effective
+date of the changeset that created them, so later extensions do not appear in
+earlier map states.

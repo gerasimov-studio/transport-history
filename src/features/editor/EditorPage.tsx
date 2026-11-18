@@ -165,6 +165,10 @@ function infraToFeature(entity: InfraEntity): DraftFeature {
 }
 
 function routeToFeatures(route: RouteEntity, infra: InfraEntity[]): DraftFeature[] {
+  if (route.paths?.length) {
+    return [...new Set(route.paths.flatMap((path) => path.segmentIds))]
+      .flatMap((segmentId) => routeSegmentFeature(route, segmentId, infra))
+  }
   if (route.legs?.length) {
     return route.legs.flatMap((leg, legIndex) => {
       if (leg.type === 'autonomous') {
@@ -229,6 +233,15 @@ function routeSegmentFeature(
         geometry: segment.geometry,
       },
     ]
+}
+
+function trackEndpointsMeet(left: InfraEntity, right: InfraEntity) {
+  if (left.geometry.type !== 'LineString' || right.geometry.type !== 'LineString') return false
+  const leftEnds = [left.geometry.coordinates[0], left.geometry.coordinates.at(-1)]
+  const rightEnds = [right.geometry.coordinates[0], right.geometry.coordinates.at(-1)]
+  return leftEnds.some((a) => a && rightEnds.some((b) =>
+    b && Math.abs(a[0] - b[0]) < 1e-7 && Math.abs(a[1] - b[1]) < 1e-7,
+  ))
 }
 
 export function EditorPage() {
@@ -642,7 +655,8 @@ export function EditorPage() {
       return
     }
     const alreadyOnRoute = draft.routes.some((route) => route.id === selectedRouteId &&
-      (route.segmentIds.includes(infraId) || route.legs?.some((leg) => leg.type === 'wire' && leg.segmentIds.includes(infraId))))
+      (route.segmentIds.includes(infraId) || route.paths?.some((path) => path.segmentIds.includes(infraId)) ||
+        route.legs?.some((leg) => leg.type === 'wire' && leg.segmentIds.includes(infraId))))
     const route = draft.routes.find((item) => item.id === selectedRouteId)
     if (!alreadyOnRoute && !infraAliveAt(segment, draft.date)) {
       setMessage(`${t('studio.inactiveTrack')} ${draft.date}`)
@@ -661,6 +675,19 @@ export function EditorPage() {
       const segmentGauge = infraGauge(segment)
       if (segmentGauge != null && !sameGauge(segmentGauge, currentGauge)) {
         setMessage(`${t('studio.gaugeMismatch')} ${currentGauge} mm / ${segmentGauge} mm`)
+        return
+      }
+      const activePath = route?.paths?.[0]?.segmentIds ?? route?.segmentIds ?? []
+      if (alreadyOnRoute && route?.paths?.some((path) => {
+        const index = path.segmentIds.indexOf(infraId)
+        return index > 0 && index < path.segmentIds.length - 1
+      })) {
+        setMessage(t('studio.disconnectedRoute'))
+        return
+      }
+      const last = draft.infra.find((entity) => entity.id === activePath.at(-1))
+      if (!alreadyOnRoute && last && !trackEndpointsMeet(last, segment)) {
+        setMessage(t('studio.disconnectedRoute'))
         return
       }
     }
@@ -685,12 +712,27 @@ export function EditorPage() {
             }
             return { ...route, segmentIds: [], geometry: undefined, legs }
           }
-          return {
-            ...route,
-            segmentIds: exists
-              ? route.segmentIds.filter((id) => id !== infraId)
-              : [...route.segmentIds, infraId],
-          }
+          const segmentIds = exists
+            ? route.segmentIds.filter((id) => id !== infraId)
+            : [...route.segmentIds, infraId]
+          const paths = route.paths?.length
+            ? route.paths.map((path, index) => ({
+                ...path,
+                segmentIds: exists
+                  ? path.segmentIds.filter((id) => id !== infraId)
+                  : index === 0 ? [...path.segmentIds, infraId] : path.segmentIds,
+                stopIds: path.stopIds?.filter((stopId) => {
+                  const stop = current.infra.find((entity) => entity.id === stopId)
+                  return stop?.trackId !== infraId
+                }),
+              }))
+            : [{
+                segmentIds,
+                stopIds: current.infra
+                  .filter((entity) => entity.kind === 'stop' && entity.trackId && segmentIds.includes(entity.trackId))
+                  .map((entity) => entity.id),
+              }]
+          return { ...route, segmentIds, paths }
         }),
       }
     })
@@ -1205,6 +1247,7 @@ export function EditorPage() {
             name: `${t('studio.route')} №${number}`,
             color: MODE_COLORS[draft.mode],
             segmentIds: [],
+            paths: draft.way === 'rail' ? [{ segmentIds: [], stopIds: [] }] : undefined,
             geometry: draft.mode === 'bus' ? { type: 'LineString', coordinates: [] } : undefined,
             legs: draft.mode === 'trolleybus' ? [{ type: 'wire', segmentIds: [] }] : undefined,
             since: drawSince,

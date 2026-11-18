@@ -5,6 +5,7 @@ import { collectSnapGraph, snapDrawPoint, type SnapGraph } from '../../../map/sn
 import { TrackShape } from '../../../map/TrackShape'
 import { featureAtZoom, featureInView, useMapView } from '../../../map/lod'
 import { routeRibbons } from '../../../map/segmentLabels'
+import { routeRenderFeatures } from '../../../map/routeTopology'
 import { infraAliveAt, periodsOverlap, sameGauge, type CatalogCity, type MapViewport, type NetworkFeature, type TrackGrade } from '../../../types'
 import { Basemap } from '../../../components/Basemap'
 import { RouteShields } from '../../../components/RouteShields'
@@ -158,6 +159,7 @@ function EditorNetwork({
 }) {
   const map = useMap()
   const view = useMapView()
+  const renderedFeatures = useMemo(() => routeRenderFeatures(features), [features])
   useEffect(() => {
     onViewportChange?.({
       center: [view.bounds.getCenter().lat, view.bounds.getCenter().lng],
@@ -172,7 +174,7 @@ function EditorNetwork({
       },
     })
   }, [map, onViewportChange, view])
-  const visible = features.filter((feature) => {
+  const visible = renderedFeatures.filter((feature) => {
     const selected =
       feature.properties.layer === 'route'
         ? feature.properties.lineId === selectedKey
@@ -235,7 +237,7 @@ function EditorNetwork({
           activeGrade={activeGrade}
           activeLevel={activeLevel}
           features={features}
-          onSelect={() => onSelect(feature)}
+          onSelect={feature.properties.layer === 'route' && !feature.properties.infraId ? undefined : () => onSelect(feature)}
           onMoveVertex={(index, coord) => onMoveVertex(feature.key, index, coord)}
           onMovePoint={(coord) => onMovePoint(feature.key, coord)}
         />
@@ -303,7 +305,7 @@ function DraftShape({
   activeGrade?: TrackGrade | 'portal'
   activeLevel?: number
   features: DraftFeature[]
-  onSelect: () => void
+  onSelect?: () => void
   onMoveVertex: (index: number, coord: [number, number]) => void
   onMovePoint: (coord: [number, number]) => void
 }) {
@@ -343,7 +345,7 @@ function DraftShape({
               eventHandlers={{
                 click: (event) => {
                   L.DomEvent.stopPropagation(event.originalEvent)
-                  onSelect()
+                  onSelect?.()
                 },
                 dragend: (event) => {
                   const next = event.target.getLatLng()
@@ -373,7 +375,7 @@ function DraftShape({
           eventHandlers={{
             click: (event) => {
               L.DomEvent.stopPropagation(event.originalEvent)
-              onSelect()
+                  onSelect?.()
             },
             dragend: (event) => {
               const next = event.target.getLatLng()

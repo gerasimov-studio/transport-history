@@ -186,6 +186,12 @@ export type RouteLeg =
   | { type: 'wire'; segmentIds: string[] }
   | { type: 'autonomous'; geometry: { type: 'LineString'; coordinates: [number, number][] } }
 
+export type RoutePath = {
+  direction?: StopDirection
+  segmentIds: string[]
+  stopIds?: string[]
+}
+
 export type RouteEntity = {
   id: string
   mode: TransportMode
@@ -195,6 +201,7 @@ export type RouteEntity = {
   segmentIds: string[]
   geometry?: { type: 'LineString'; coordinates: [number, number][] }
   legs?: RouteLeg[]
+  paths?: RoutePath[]
   since?: string
   until?: string
 }

@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"transport-history/backend/internal/domain"
@@ -83,6 +85,33 @@ func (s *Server) objectCommit(w http.ResponseWriter, r *http.Request) {
 		}
 		routes = append(routes, v...)
 	}
+	availableInfra := map[string]domain.Infra{}
+	for _, item := range infra {
+		availableInfra[item.ID] = item
+	}
+	referenceIDs := routeInfrastructureIDs(routes)
+	if len(referenceIDs) > 0 {
+		rows, err := s.pool.Query(r.Context(), `SELECT payload FROM network_infra WHERE id=ANY($1::text[])`, referenceIDs)
+		if err != nil {
+			s.fail(w, err)
+			return
+		}
+		for rows.Next() {
+			var raw json.RawMessage
+			var item domain.Infra
+			if rows.Scan(&raw) == nil && json.Unmarshal(raw, &item) == nil {
+				availableInfra[item.ID] = item
+			}
+		}
+		rows.Close()
+	}
+	for _, id := range body.RemoveInfra {
+		delete(availableInfra, id)
+	}
+	if err := validateRouteInfrastructure(routes, availableInfra); err != nil {
+		httpjson.Write(w, 400, map[string]string{"error": err.Error()})
+		return
+	}
 	op := domain.Operations{UpsertInfra: infra, RemoveInfra: body.RemoveInfra, UpsertRoutes: routes, RemoveRoutes: body.RemoveRoutes}
 	id := strings.TrimSpace(body.ChangeSetID)
 	if id == "" {
@@ -98,10 +127,7 @@ func (s *Server) objectCommit(w http.ResponseWriter, r *http.Request) {
 		httpjson.Write(w, 409, map[string]string{"error": "changeset cannot be updated"})
 		return
 	}
-	referenced := append([]string{}, body.RemoveInfra...)
-	for _, v := range routes {
-		referenced = append(referenced, v.SegmentIDs...)
-	}
+	referenced := append(append([]string{}, body.RemoveInfra...), referenceIDs...)
 	if len(infra)+len(routes)+len(referenced)+len(body.RemoveRoutes) > 0 {
 		infraRaw, _ := json.Marshal(infra)
 		routeRaw, _ := json.Marshal(routes)
@@ -112,6 +138,149 @@ func (s *Server) objectCommit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	httpjson.Write(w, 201, map[string]any{"ok": true, "id": id, "status": "draft", "operations": len(infra) + len(body.RemoveInfra) + len(routes) + len(body.RemoveRoutes), "date": date})
+}
+
+func routeInfrastructureIDs(routes []domain.Route) []string {
+	var ids []string
+	for _, route := range routes {
+		ids = append(ids, routeTrackIDs(route)...)
+		ids = append(ids, routeStopIDs(route)...)
+	}
+	return uniqueStrings(ids)
+}
+
+func routeTrackIDs(route domain.Route) []string {
+	ids := append([]string{}, route.SegmentIDs...)
+	for _, path := range route.Paths {
+		ids = append(ids, path.SegmentIDs...)
+	}
+	for _, leg := range route.Legs {
+		if leg.Type == "wire" {
+			ids = append(ids, leg.SegmentIDs...)
+		}
+	}
+	return uniqueStrings(ids)
+}
+
+func routeStopIDs(route domain.Route) []string {
+	var ids []string
+	for _, path := range route.Paths {
+		ids = append(ids, path.StopIDs...)
+	}
+	return uniqueStrings(ids)
+}
+
+func validateRouteInfrastructure(routes []domain.Route, infra map[string]domain.Infra) error {
+	for _, route := range routes {
+		trackIDs := routeTrackIDs(route)
+		if route.Mode != "bus" && route.Mode != "trolleybus" && len(trackIDs) == 0 {
+			return fmt.Errorf("route %s must use existing infrastructure", route.ID)
+		}
+		for _, id := range trackIDs {
+			segment, ok := infra[id]
+			if !ok || segment.Kind != "track" {
+				return fmt.Errorf("route %s references unavailable infrastructure %s", route.ID, id)
+			}
+			if segment.Mode != route.Mode {
+				return fmt.Errorf("route %s and infrastructure %s have incompatible modes", route.ID, id)
+			}
+			if !validityOverlaps(route.Since, route.Until, segment.Since, segment.Until) {
+				return fmt.Errorf("route %s and infrastructure %s do not overlap in time", route.ID, id)
+			}
+		}
+		for _, id := range routeStopIDs(route) {
+			stop, ok := infra[id]
+			if !ok || (stop.Kind != "stop" && stop.Kind != "station") {
+				return fmt.Errorf("route %s references unavailable stop %s", route.ID, id)
+			}
+			if (stop.TrackID == "" || !slices.Contains(trackIDs, stop.TrackID)) && !stopOnRoutePath(stop, trackIDs, infra) {
+				return fmt.Errorf("route %s stop %s is not on its infrastructure", route.ID, id)
+			}
+		}
+		for _, path := range route.Paths {
+			if !continuousInfrastructurePath(path.SegmentIDs, infra) {
+				return fmt.Errorf("route %s contains a discontinuous infrastructure path", route.ID)
+			}
+		}
+	}
+	return nil
+}
+
+func stopOnRoutePath(stop domain.Infra, trackIDs []string, infra map[string]domain.Infra) bool {
+	if stop.Geometry.Type != "Point" {
+		return false
+	}
+	var point [2]float64
+	if json.Unmarshal(stop.Geometry.Coordinates, &point) != nil {
+		return false
+	}
+	for _, id := range trackIDs {
+		track := infra[id]
+		if track.Geometry.Type != "LineString" {
+			continue
+		}
+		var line [][2]float64
+		if json.Unmarshal(track.Geometry.Coordinates, &line) != nil {
+			continue
+		}
+		for index := 1; index < len(line); index++ {
+			if pointOnLineSegment(point, line[index-1], line[index]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func pointOnLineSegment(point, start, end [2]float64) bool {
+	dx, dy := end[0]-start[0], end[1]-start[1]
+	length := dx*dx + dy*dy
+	if length == 0 {
+		return abs(point[0]-start[0]) < 1e-7 && abs(point[1]-start[1]) < 1e-7
+	}
+	t := ((point[0]-start[0])*dx + (point[1]-start[1])*dy) / length
+	if t < 0 || t > 1 {
+		return false
+	}
+	return abs(point[0]-(start[0]+t*dx)) < 1e-7 && abs(point[1]-(start[1]+t*dy)) < 1e-7
+}
+
+func continuousInfrastructurePath(ids []string, infra map[string]domain.Infra) bool {
+	for index := 1; index < len(ids); index++ {
+		if !lineEndpointsMeet(infra[ids[index-1]].Geometry, infra[ids[index]].Geometry) {
+			return false
+		}
+	}
+	return true
+}
+
+func lineEndpointsMeet(a, b domain.Geometry) bool {
+	if a.Type != "LineString" || b.Type != "LineString" {
+		return false
+	}
+	var left, right [][2]float64
+	if json.Unmarshal(a.Coordinates, &left) != nil || json.Unmarshal(b.Coordinates, &right) != nil || len(left) < 2 || len(right) < 2 {
+		return false
+	}
+	for _, p := range [][2]float64{left[0], left[len(left)-1]} {
+		for _, q := range [][2]float64{right[0], right[len(right)-1]} {
+			if abs(p[0]-q[0]) < 1e-7 && abs(p[1]-q[1]) < 1e-7 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func abs(value float64) float64 {
+	if value < 0 {
+		return -value
+	}
+	return value
+}
+
+func validityOverlaps(aFrom, aTo, bFrom, bTo string) bool {
+	return (aTo == "" || bFrom <= aTo) && (bTo == "" || aFrom <= bTo)
 }
 
 type legacyCommitBody struct {

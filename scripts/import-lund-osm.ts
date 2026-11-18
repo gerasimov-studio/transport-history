@@ -61,12 +61,18 @@ const unique = <T extends { id: number }>(items: T[]) => [...new Map(items.map((
 const create = {
   nodes: unique([...documents.flatMap((d) => d.nodes), ...depotNodes]),
   ways: unique([...documents.flatMap((d) => d.ways), ...depotWays]),
-  relations: unique(documents.flatMap((d) => d.relations)),
+  relations: [
+    ...unique(documents.flatMap((d) => d.relations)),
+    { id: -12021098, version: 1, members: [
+      ...relationIDs.map((ref) => ({ type: 'relation' as const, ref, role: 'route' })),
+      ...depotWays.filter((way) => way.tags?.industrial === 'depot' || way.tags?.depot === 'tram').map((way) => ({ type: 'way' as const, ref: way.id, role: 'depot' })),
+    ], tags: { type: 'transport_system', name: 'Lund', aliases: 'Lund tramway', mode: 'tram', start_date: '2020-12-12' } },
+  ],
 }
 const login = await request('/api/login', { method: 'POST', body: JSON.stringify({ username, password }) })
 const cookie = login.headers.get('set-cookie')?.split(';')[0]
 if (!cookie) throw new Error('login did not return a session')
-const draft = await request('/api/osm/changesets', { method: 'POST', cookie, body: JSON.stringify({ workspaceId: 'main', date: '2020-12-12', mode: 'tram', title: 'Lund tramway opened', summary: 'The 5.5 km double-track line between Lund C and ESS opened with nine stops.', osmChange: { version: '0.6', generator: 'transporthistory', create } }) })
+const draft = await request('/api/osm/changesets', { method: 'POST', cookie, body: JSON.stringify({ workspaceId: 'main', scopeId: 'lund', date: '2020-12-12', mode: 'tram', title: 'Lund tramway opened', summary: 'The 5.5 km double-track line between Lund C and ESS opened with nine stops.', osmChange: { version: '0.6', generator: 'transporthistory', create } }) })
 const { id } = await draft.json() as { id: string }
 await request(`/api/changesets/${id}/submit`, { method: 'POST', cookie, body: '{}' })
 await request(`/api/changesets/${id}/publish`, { method: 'POST', cookie, body: '{}' })

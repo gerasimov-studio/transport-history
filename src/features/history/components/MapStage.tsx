@@ -4,6 +4,7 @@ import L from 'leaflet'
 import { TrackShape } from '../../../map/TrackShape'
 import { featureAtZoom, featureInView, STOP_DIRECTION_DETAIL_ZOOM, useMapView } from '../../../map/lod'
 import { routeRibbons } from '../../../map/segmentLabels'
+import { routeRenderFeatures } from '../../../map/routeTopology'
 import { MODE_COLORS, type CatalogCity, type MapPlace, type MapViewport, type NetworkFeature } from '../../../types'
 import { Basemap } from '../../../components/Basemap'
 import { RouteShields } from '../../../components/RouteShields'
@@ -75,6 +76,7 @@ function ViewerNetwork({
 }) {
   const map = useMap()
   const view = useMapView()
+  const renderedFeatures = useMemo(() => routeRenderFeatures(features), [features])
   useEffect(() => {
     onViewportChange?.({
       center: [view.bounds.getCenter().lat, view.bounds.getCenter().lng],
@@ -89,7 +91,7 @@ function ViewerNetwork({
       },
     })
   }, [map, onViewportChange, view])
-  const zoomVisible = features.filter(
+  const zoomVisible = renderedFeatures.filter(
     (feature) => featureAtZoom(feature, view.zoom) && featureInView(feature, view.bounds),
   )
   const visible = view.zoom >= STOP_DIRECTION_DETAIL_ZOOM ? zoomVisible : mergeStopPlatforms(zoomVisible)
@@ -120,7 +122,7 @@ function ViewerNetwork({
           accent={feature.accent}
           showPopup
           zoom={view.zoom}
-          networkFeatures={features}
+          networkFeatures={renderedFeatures}
         />
       ))}
       <RouteShields ribbons={ribbons} />

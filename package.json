@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build && npm run size:check",
     "size:check": "node scripts/check-bundle-size.mjs",
     "data:lund-tram": "node --experimental-strip-types --no-warnings scripts/import-lund-osm.ts",
+    "data:tampere-tram": "node --experimental-strip-types --no-warnings scripts/import-tampere-osm.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },

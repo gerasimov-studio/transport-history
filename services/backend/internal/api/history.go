@@ -91,6 +91,10 @@ func (s *Server) syncProjection(ctx context.Context, scope string) error {
 	for _, v := range state.Routes {
 		raw, _ := json.Marshal(v)
 		ids := append([]string{}, v.SegmentIDs...)
+		for _, path := range v.Paths {
+			ids = append(ids, path.SegmentIDs...)
+			ids = append(ids, path.StopIDs...)
+		}
 		var geom any
 		for _, leg := range v.Legs {
 			if leg.Type == "wire" {
@@ -565,6 +569,18 @@ func (s *Server) buildMap(ctx context.Context, b bounds, date string, zoom float
 				for _, id := range v.SegmentIDs {
 					if _, ok := infra[id]; ok {
 						visible = true
+					}
+				}
+				for _, path := range v.Paths {
+					for _, id := range path.SegmentIDs {
+						if _, ok := infra[id]; ok {
+							visible = true
+						}
+					}
+					for _, id := range path.StopIDs {
+						if _, ok := infra[id]; ok {
+							visible = true
+						}
 					}
 				}
 				if domain.Alive(v.Since, v.Until, date) && visible {

@@ -1,6 +1,7 @@
 import L from 'leaflet'
 import { alongPolyline, polylineLength } from './geometry'
 import { LABELS_MIN_ZOOM } from './lod'
+import { joinLineChains } from './routeTopology'
 import type { NetworkFeature } from '../types'
 
 export type SegmentLabel = {
@@ -19,7 +20,6 @@ export type RouteRibbon = {
   color: string
 }
 
-const JOIN_EPS = 8e-5
 const METERS_PER_DEGREE = 111_320
 
 export function routeRibbons(features: NetworkFeature[]): RouteRibbon[] {
@@ -77,7 +77,7 @@ export function routeRibbons(features: NetworkFeature[]): RouteRibbon[] {
 
   const ribbons: RouteRibbon[] = []
   for (const group of bySignature.values()) {
-    const chains = joinChains(group.map((item) => item.coordinates))
+    const chains = joinLineChains(group.map((item) => item.coordinates))
     const color = group[0]?.color ?? '#c45c26'
     const text = group[0]?.text ?? ''
     chains.forEach((coordinates, index) => {
@@ -142,55 +142,6 @@ function placeAlong(ribbon: RouteRibbon, zoom: number): SegmentLabel[] {
     })
   }
   return labels
-}
-
-function joinChains(lines: [number, number][][]): [number, number][][] {
-  const remaining = lines.map((line) => line.slice())
-  const chains: [number, number][][] = []
-  while (remaining.length) {
-    let chain = remaining.pop()!
-    let found = true
-    while (found) {
-      found = false
-      for (let index = remaining.length - 1; index >= 0; index -= 1) {
-        const joined = tryJoin(chain, remaining[index]!)
-        if (joined) {
-          chain = joined
-          remaining.splice(index, 1)
-          found = true
-        }
-      }
-    }
-    chains.push(chain)
-  }
-  return chains
-}
-
-function tryJoin(left: [number, number][], right: [number, number][]): [number, number][] | null {
-  const leftStart = left[0]
-  const leftEnd = left.at(-1)
-  const rightStart = right[0]
-  const rightEnd = right.at(-1)
-  if (!leftStart || !leftEnd || !rightStart || !rightEnd) {
-    return null
-  }
-  if (near(leftEnd, rightStart)) {
-    return left.concat(right.slice(1))
-  }
-  if (near(leftEnd, rightEnd)) {
-    return left.concat(right.slice(0, -1).reverse())
-  }
-  if (near(leftStart, rightEnd)) {
-    return right.concat(left.slice(1))
-  }
-  if (near(leftStart, rightStart)) {
-    return [...right].reverse().concat(left.slice(1))
-  }
-  return null
-}
-
-function near(left: [number, number], right: [number, number]): boolean {
-  return Math.abs(left[0] - right[0]) < JOIN_EPS && Math.abs(left[1] - right[1]) < JOIN_EPS
 }
 
 function ribbonBounds(coordinates: [number, number][]): L.LatLngBounds | null {
